@@ -1934,15 +1934,6 @@ function enableHighlightMode() {
         
         // touchend로 드래그 완료 감지
         document._hl_touchend_handler = function(e) {
-            // 메시지 영역 외부 터치는 무시
-            const mesTextElement = $(e.target).closest('.mes_text')[0];
-            if (!mesTextElement) {
-                selectionChangeCount = 0;
-                initialSelectionText = '';
-                isDragging = false;
-                return;
-            }
-            
             // 기존 타이머 제거
             if (selectionChangeTimer) {
                 clearTimeout(selectionChangeTimer);
@@ -1979,21 +1970,22 @@ function enableHighlightMode() {
                 return;
             }
             
+            const element = $(range.commonAncestorContainer).closest('.mes_text')[0];
+            if (!element) {
+                return;
+            }
+            
             // 핸들을 움직인 경우(selectionChangeCount >= 2)에만 메뉴 표시
             if (selectionChangeCount >= 2) {
-                const element = $(range.commonAncestorContainer).closest('.mes_text')[0] || mesTextElement;
+                const rangeRect = range.getBoundingClientRect();
+                const pageX = rangeRect.left + rangeRect.width / 2 + window.scrollX;
+                const pageY = rangeRect.bottom + window.scrollY;
                 
-                if (element) {
-                    const rangeRect = range.getBoundingClientRect();
-                    const pageX = rangeRect.left + rangeRect.width / 2 + window.scrollX;
-                    const pageY = rangeRect.bottom + window.scrollY;
-                    
-                    // 색상 메뉴 표시 (드래그 완료 후 바로)
-                    touchSelectionTimer = setTimeout(() => {
-                        showColorMenu(pageX, pageY, text, range, element);
-                        touchSelectionTimer = null;
-                    }, 200);
-                }
+                // 색상 메뉴 표시 (드래그 완료 후 바로)
+                touchSelectionTimer = setTimeout(() => {
+                    showColorMenu(pageX, pageY, text, range, element);
+                    touchSelectionTimer = null;
+                }, 200);
             }
             
             // 초기화
@@ -2049,7 +2041,8 @@ function enableHighlightMode() {
             }
         };
         
-        document.addEventListener('touchend', document._hl_touchend_handler, { passive: true });
+        // touchend는 위임 이벤트에서 처리
+        // document.addEventListener('touchend', document._hl_touchend_handler, { passive: true });
         document.addEventListener('selectionchange', document._hl_selectionchange_handler);
     }
     
@@ -2057,9 +2050,12 @@ function enableHighlightMode() {
     $(document).off('mouseup.hl touchend.hl', '.mes_text').on('mouseup.hl touchend.hl', '.mes_text', function (e) {
         const element = this;
 
-        // 모바일 터치 이벤트의 경우 전역 핸들러가 처리하도록 스킵
+        // 모바일 터치 이벤트의 경우 전역 핸들러 호출
         const isTouchEvent = e.type === 'touchend';
         if (isTouchEvent) {
+            if (document._hl_touchend_handler) {
+                document._hl_touchend_handler(e);
+            }
             return;
         }
 
@@ -2145,12 +2141,7 @@ function disableHighlightMode() {
         touchSelectionTimer = null;
     }
     
-    // ⭐ 전역 핸들러 제거
-    if (document._hl_touchend_handler) {
-        document.removeEventListener('touchend', document._hl_touchend_handler);
-        document._hl_touchend_handler = null;
-    }
-    
+    // ⭐ 전역 핸들러 제거 (touchend는 위임 이벤트에서 처리하므로 제거 불필요)
     if (document._hl_selectionchange_handler) {
         document.removeEventListener('selectionchange', document._hl_selectionchange_handler);
         document._hl_selectionchange_handler = null;
