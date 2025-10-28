@@ -1922,8 +1922,27 @@ function getMessageLabel(mesId) {
 let touchSelectionTimer = null;
 let lastTouchEnd = 0;
 let lastSelectionEventTime = 0;
+let initialSelectionRange = null; // 초기 선택 범위 저장
+let hasSelectionChanged = false; // 선택 범위가 변경되었는지 추적
 
 function enableHighlightMode() {
+    // selectionchange 이벤트로 선택 범위 변경 감지
+    $(document).off('selectionchange.hl').on('selectionchange.hl', function() {
+        if (initialSelectionRange) {
+            const sel = window.getSelection();
+            if (sel && sel.rangeCount > 0) {
+                const currentRange = sel.getRangeAt(0);
+                // 초기 범위와 현재 범위가 다르면 변경된 것으로 간주
+                if (currentRange.startContainer !== initialSelectionRange.startContainer ||
+                    currentRange.startOffset !== initialSelectionRange.startOffset ||
+                    currentRange.endContainer !== initialSelectionRange.endContainer ||
+                    currentRange.endOffset !== initialSelectionRange.endOffset) {
+                    hasSelectionChanged = true;
+                }
+            }
+        }
+    });
+
     // 이벤트 위임 방식으로 변경 - 동적으로 로드되는 메시지에도 작동
     $(document).off('mouseup.hl touchend.hl touchcancel.hl').on('mouseup.hl touchend.hl touchcancel.hl', function (e) {
         // .mes_text 요소 내부에서 발생한 이벤트인지 확인
@@ -2021,11 +2040,21 @@ function enableHighlightMode() {
         };
 
         if (isTouchEvent) {
-            // ⭐ 안드로이드 크롬: 단순한 방식으로 변경
+            // ⭐ 안드로이드 크롬: 초기 선택과 드래그 완료 구분
+            // 초기 선택 범위 저장
+            const sel = window.getSelection();
+            if (sel && sel.rangeCount > 0) {
+                initialSelectionRange = sel.getRangeAt(0).cloneRange();
+                hasSelectionChanged = false;
+            }
+            
             // touchend 후 200ms 후에 메뉴 표시 (드래그 종료 대기)
             clearTimeout(touchSelectionTimer);
             touchSelectionTimer = setTimeout(() => {
-                processSelection();
+                // 선택이 변경되었을 때만 메뉴 표시
+                if (hasSelectionChanged) {
+                    processSelection();
+                }
             }, 200);
         } else {
             // 데스크탑: 즉시 실행
@@ -2035,13 +2064,17 @@ function enableHighlightMode() {
 }
 
 function disableHighlightMode() {
-    $(document).off('mouseup.hl touchend.hl touchcancel.hl');
+    $(document).off('mouseup.hl touchend.hl touchcancel.hl selectionchange.hl');
 
     // ⭐ 대기 중인 터치 타이머 제거
     if (touchSelectionTimer) {
         clearTimeout(touchSelectionTimer);
         touchSelectionTimer = null;
     }
+    
+    // 초기화
+    initialSelectionRange = null;
+    hasSelectionChanged = false;
 }
 
 // 전역 변수: document click 핸들러 추적
