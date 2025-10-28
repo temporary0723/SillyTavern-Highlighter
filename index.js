@@ -2016,52 +2016,26 @@ function enableHighlightMode() {
         };
 
         if (isTouchEvent) {
-            // ⭐ 안드로이드 크롬: selectionchange로 안정적으로 감지
-            // touchend 후 selection이 확정될 때까지 기다림
-            let selectionChangeHandler = null;
-            let finalTimer = null;
-            
-            clearTimeout(touchSelectionTimer);
-            
-            // selectionchange로 selection 완료 감지
-            selectionChangeHandler = () => {
+            // ⭐ 안드로이드 크롬: touchend 시점의 selection을 먼저 확인
+            // 드래그가 끝나면 바로 selection을 읽어서 저장
+            const checkAndProcess = () => {
                 const sel = window.getSelection();
-                // 선택이 완료되었는지 확인
-                if (sel && sel.rangeCount > 0 && sel.toString().trim().length >= 2) {
-                    // 추가 변화 없이 150ms 유지되면 완료로 간주
-                    if (finalTimer) {
-                        clearTimeout(finalTimer);
-                    }
-                    finalTimer = setTimeout(() => {
-                        if (selectionChangeHandler) {
-                            document.removeEventListener('selectionchange', selectionChangeHandler);
-                            selectionChangeHandler = null;
-                        }
-                        if (finalTimer) {
-                            clearTimeout(finalTimer);
-                            finalTimer = null;
-                        }
-                        if (touchSelectionTimer) {
-                            clearTimeout(touchSelectionTimer);
-                            touchSelectionTimer = null;
-                        }
+                if (!sel || sel.rangeCount === 0) {
+                    // selection이 아직 없으면 잠시 후 재시도
+                    clearTimeout(touchSelectionTimer);
+                    touchSelectionTimer = setTimeout(() => {
                         processSelection();
-                    }, 150);
+                    }, 100);
+                    return;
                 }
+                
+                // selection이 있으면 바로 메뉴 표시
+                processSelection();
             };
             
-            document.addEventListener('selectionchange', selectionChangeHandler);
-            
-            // 백업: 1초 후에는 강제로 실행 (selectionchange가 안 오는 경우)
-            touchSelectionTimer = setTimeout(() => {
-                if (selectionChangeHandler) {
-                    document.removeEventListener('selectionchange', selectionChangeHandler);
-                }
-                if (finalTimer) {
-                    clearTimeout(finalTimer);
-                }
-                processSelection();
-            }, 1000);
+            // 먼저 50ms 기다린 후 selection 확인
+            clearTimeout(touchSelectionTimer);
+            touchSelectionTimer = setTimeout(checkAndProcess, 50);
         } else {
             // 데스크탑: 즉시 실행
             setTimeout(processSelection, delay);
