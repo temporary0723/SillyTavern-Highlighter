@@ -1945,56 +1945,20 @@ function enableHighlightMode() {
                 clearTimeout(touchSelectionTimer);
                 touchSelectionTimer = null;
             }
-            
-            console.log('[Highlighter] touchend event received on .mes_text');
         }
 
         const delay = isTouchEvent ? 150 : 0;
 
-        // ⭐ 터치 이벤트의 경우 좌표와 selection을 미리 저장 (touchend 후에는 접근 불가)
-        let savedPageX = e.pageX || (e.originalEvent?.changedTouches?.[0]?.pageX) || e.clientX;
-        let savedPageY = e.pageY || (e.originalEvent?.changedTouches?.[0]?.pageY) || e.clientY;
-        
-        // ⭐ 안드로이드 크롬: touchend 시점에 이미 selection이 존재할 수 있으므로 저장
-        // Range는 복사되지 않으므로, range 정보를 JSON으로 저장
-        let savedSelection = null;
-        try {
-            const selNow = window.getSelection();
-            if (selNow && selNow.rangeCount > 0) {
-                const rangeNow = selNow.getRangeAt(0);
-                // Range의 참조 정보를 저장
-                savedSelection = {
-                    startContainer: rangeNow.startContainer,
-                    startOffset: rangeNow.startOffset,
-                    endContainer: rangeNow.endContainer,
-                    endOffset: rangeNow.endOffset,
-                    text: selNow.toString(),
-                    cloneRange: rangeNow.cloneRange() // Range 복제본 저장
-                };
-            }
-        } catch (err) {
-            // 무시
-        }
-
         const processSelection = () => {
             try {
-                let sel = window.getSelection();
-                let range = null;
-                let text = '';
+                const sel = window.getSelection();
 
-                // ⭐ 터치 이벤트: 저장된 selection 우선 사용
-                if (isTouchEvent && savedSelection) {
-                    text = savedSelection.text;
-                    range = savedSelection.cloneRange; // 복제본 사용
-                    sel = null; // marker로 사용
-                } else {
-                    // ⭐ 안전장치: range가 없는 경우 처리
-                    if (!sel || sel.rangeCount === 0) {
-                        return;
-                    }
-                    range = sel.getRangeAt(0);
-                    text = sel.toString();
+                // ⭐ 안전장치: range가 없는 경우 처리
+                if (!sel || sel.rangeCount === 0) {
+                    return;
                 }
+
+                let text = sel.toString();
 
                 // 앞뒤 빈줄 제거
                 const originalText = text;
@@ -2013,10 +1977,12 @@ function enableHighlightMode() {
 
                 // 선택된 텍스트가 있으면 색상 메뉴 표시 (하이라이트 영역 포함해도 OK)
 
+                const range = sel.getRangeAt(0);
+
                 // 터치 이벤트와 마우스 이벤트 모두 지원
-                // ⭐ 저장된 좌표 사용
-                let pageX = savedPageX;
-                let pageY = savedPageY;
+                // ⭐ 안전장치: 좌표가 없는 경우 기본값 설정
+                let pageX = e.pageX || (e.originalEvent?.changedTouches?.[0]?.pageX) || e.clientX;
+                let pageY = e.pageY || (e.originalEvent?.changedTouches?.[0]?.pageY) || e.clientY;
 
                 // 좌표가 여전히 없으면 range 중앙 사용
                 if (!pageX || !pageY) {
@@ -2050,15 +2016,52 @@ function enableHighlightMode() {
         };
 
         if (isTouchEvent) {
-            // ⭐ 안드로이드 크롬: 단순한 방식으로 변경
-            // touchend 후 200ms 후에 메뉴 표시 (드래그 종료 대기)
-
-            console.log('[Highlighter] Setting timeout for 200ms, savedSelection:', savedSelection ? 'exists' : 'null');
+            // ⭐ 안드로이드 크롬: selectionchange로 안정적으로 감지
+            // touchend 후 selection이 확정될 때까지 기다림
+            let selectionChangeHandler = null;
+            let finalTimer = null;
+            
             clearTimeout(touchSelectionTimer);
+            
+            // selectionchange로 selection 완료 감지
+            selectionChangeHandler = () => {
+                const sel = window.getSelection();
+                // 선택이 완료되었는지 확인
+                if (sel && sel.rangeCount > 0 && sel.toString().trim().length >= 2) {
+                    // 추가 변화 없이 150ms 유지되면 완료로 간주
+                    if (finalTimer) {
+                        clearTimeout(finalTimer);
+                    }
+                    finalTimer = setTimeout(() => {
+                        if (selectionChangeHandler) {
+                            document.removeEventListener('selectionchange', selectionChangeHandler);
+                            selectionChangeHandler = null;
+                        }
+                        if (finalTimer) {
+                            clearTimeout(finalTimer);
+                            finalTimer = null;
+                        }
+                        if (touchSelectionTimer) {
+                            clearTimeout(touchSelectionTimer);
+                            touchSelectionTimer = null;
+                        }
+                        processSelection();
+                    }, 150);
+                }
+            };
+            
+            document.addEventListener('selectionchange', selectionChangeHandler);
+            
+            // 백업: 1초 후에는 강제로 실행 (selectionchange가 안 오는 경우)
             touchSelectionTimer = setTimeout(() => {
-                console.log('[Highlighter] Timeout fired, calling processSelection');
+                if (selectionChangeHandler) {
+                    document.removeEventListener('selectionchange', selectionChangeHandler);
+                }
+                if (finalTimer) {
+                    clearTimeout(finalTimer);
+                }
                 processSelection();
-            }, 200);
+            }, 1000);
         } else {
             // 데스크탑: 즉시 실행
             setTimeout(processSelection, delay);
