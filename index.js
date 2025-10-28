@@ -2038,42 +2038,6 @@ function enableHighlightMode() {
                 isDragging = true;
             }
             
-            // 기존 타이머 제거 (드래그 중에는 메뉴를 표시하지 않음)
-            if (selectionChangeTimer) {
-                clearTimeout(selectionChangeTimer);
-            }
-            
-            // 드래그 완료 감지: 500ms 동안 selectionchange가 없으면 완료로 간주
-            selectionChangeTimer = setTimeout(() => {
-                const sel = window.getSelection();
-                if (sel && sel.rangeCount > 0 && selectionChangeCount >= 2) {
-                    const text = sel.toString().trim();
-                    if (text.length >= 2) {
-                        const range = sel.getRangeAt(0);
-                        const element = $(range.commonAncestorContainer).closest('.mes_text')[0];
-                        
-                        if (element) {
-                            const rangeRect = range.getBoundingClientRect();
-                            const pageX = rangeRect.left + rangeRect.width / 2 + window.scrollX;
-                            const pageY = rangeRect.bottom + window.scrollY;
-                            
-                            // 색상 메뉴 표시
-                            if (touchSelectionTimer) {
-                                clearTimeout(touchSelectionTimer);
-                            }
-                            touchSelectionTimer = setTimeout(() => {
-                                showColorMenu(pageX, pageY, text, range, element);
-                                touchSelectionTimer = null;
-                            }, 100);
-                        }
-                    }
-                }
-                // 초기화
-                selectionChangeCount = 0;
-                initialSelectionText = '';
-                isDragging = false;
-                selectionChangeTimer = null;
-            }, 500);
         };
         
         document.addEventListener('touchend', document._hl_touchend_handler, { passive: true });
