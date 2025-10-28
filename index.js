@@ -1945,6 +1945,8 @@ function enableHighlightMode() {
                 clearTimeout(touchSelectionTimer);
                 touchSelectionTimer = null;
             }
+            
+            console.log('[Highlighter] touchend event received on .mes_text');
         }
 
         const delay = isTouchEvent ? 150 : 0;
@@ -1954,13 +1956,20 @@ function enableHighlightMode() {
         let savedPageY = e.pageY || (e.originalEvent?.changedTouches?.[0]?.pageY) || e.clientY;
         
         // ⭐ 안드로이드 크롬: touchend 시점에 이미 selection이 존재할 수 있으므로 저장
+        // Range는 복사되지 않으므로, range 정보를 JSON으로 저장
         let savedSelection = null;
         try {
             const selNow = window.getSelection();
             if (selNow && selNow.rangeCount > 0) {
+                const rangeNow = selNow.getRangeAt(0);
+                // Range의 참조 정보를 저장
                 savedSelection = {
-                    range: selNow.getRangeAt(0),
-                    text: selNow.toString()
+                    startContainer: rangeNow.startContainer,
+                    startOffset: rangeNow.startOffset,
+                    endContainer: rangeNow.endContainer,
+                    endOffset: rangeNow.endOffset,
+                    text: selNow.toString(),
+                    cloneRange: rangeNow.cloneRange() // Range 복제본 저장
                 };
             }
         } catch (err) {
@@ -1976,7 +1985,7 @@ function enableHighlightMode() {
                 // ⭐ 터치 이벤트: 저장된 selection 우선 사용
                 if (isTouchEvent && savedSelection) {
                     text = savedSelection.text;
-                    range = savedSelection.range;
+                    range = savedSelection.cloneRange; // 복제본 사용
                     sel = null; // marker로 사용
                 } else {
                     // ⭐ 안전장치: range가 없는 경우 처리
@@ -2043,8 +2052,11 @@ function enableHighlightMode() {
         if (isTouchEvent) {
             // ⭐ 안드로이드 크롬: 단순한 방식으로 변경
             // touchend 후 200ms 후에 메뉴 표시 (드래그 종료 대기)
+
+            console.log('[Highlighter] Setting timeout for 200ms, savedSelection:', savedSelection ? 'exists' : 'null');
             clearTimeout(touchSelectionTimer);
             touchSelectionTimer = setTimeout(() => {
+                console.log('[Highlighter] Timeout fired, calling processSelection');
                 processSelection();
             }, 200);
         } else {
