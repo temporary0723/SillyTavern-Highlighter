@@ -1949,6 +1949,10 @@ function enableHighlightMode() {
 
         const delay = isTouchEvent ? 150 : 0;
 
+        // ⭐ 터치 이벤트의 경우 좌표를 미리 저장 (touchend 후에는 접근 불가)
+        let savedPageX = e.pageX || (e.originalEvent?.changedTouches?.[0]?.pageX) || e.clientX;
+        let savedPageY = e.pageY || (e.originalEvent?.changedTouches?.[0]?.pageY) || e.clientY;
+
         const processSelection = () => {
             try {
                 const sel = window.getSelection();
@@ -1980,9 +1984,9 @@ function enableHighlightMode() {
                 const range = sel.getRangeAt(0);
 
                 // 터치 이벤트와 마우스 이벤트 모두 지원
-                // ⭐ 안전장치: 좌표가 없는 경우 기본값 설정
-                let pageX = e.pageX || (e.originalEvent?.changedTouches?.[0]?.pageX) || e.clientX;
-                let pageY = e.pageY || (e.originalEvent?.changedTouches?.[0]?.pageY) || e.clientY;
+                // ⭐ 저장된 좌표 사용
+                let pageX = savedPageX;
+                let pageY = savedPageY;
 
                 // 좌표가 여전히 없으면 range 중앙 사용
                 if (!pageX || !pageY) {
@@ -2016,56 +2020,12 @@ function enableHighlightMode() {
         };
 
         if (isTouchEvent) {
-            // ⭐ 안드로이드 크롬: selectionchange 완료 후 메뉴 표시
-            // 1. touchend 시점에 selection이 아직 불안정할 수 있음
-            // 2. selectionchange 이벤트로 안정화 기다림
-            // 3. selectionchange가 300ms 멈추면 완료로 간주
-            
-            let selectionChangeHandler = null;
-            let selectionChangeTimer = null;
-            let selectionStable = false;
-            
-            // selectionchange 이벤트 리스너
-            selectionChangeHandler = () => {
-                const sel = window.getSelection();
-                if (sel && sel.rangeCount > 0 && sel.toString().trim().length >= 2) {
-                    // selection이 있고 텍스트도 있으면 안정화 대기
-                    if (selectionChangeTimer) {
-                        clearTimeout(selectionChangeTimer);
-                    }
-                    selectionChangeTimer = setTimeout(() => {
-                        // 300ms 동안 변하지 않으면 안정화된 것으로 간주
-                        if (!selectionStable) {
-                            selectionStable = true;
-                            if (selectionChangeHandler) {
-                                document.removeEventListener('selectionchange', selectionChangeHandler);
-                                selectionChangeHandler = null;
-                            }
-                            clearTimeout(touchSelectionTimer);
-                            processSelection();
-                        }
-                    }, 300);
-                }
-            };
-            
-            // selectionchange 이벤트 시작
-            document.addEventListener('selectionchange', selectionChangeHandler);
-            
-            // 백업 타이머: 1000ms 후에도 안정화되지 않으면 강제 실행
+            // ⭐ 안드로이드 크롬: 단순한 방식으로 변경
+            // touchend 후 200ms 후에 메뉴 표시 (드래그 종료 대기)
             clearTimeout(touchSelectionTimer);
             touchSelectionTimer = setTimeout(() => {
-                if (!selectionStable) {
-                    selectionStable = true;
-                    if (selectionChangeHandler) {
-                        document.removeEventListener('selectionchange', selectionChangeHandler);
-                        selectionChangeHandler = null;
-                    }
-                    if (selectionChangeTimer) {
-                        clearTimeout(selectionChangeTimer);
-                    }
-                    processSelection();
-                }
-            }, 1000);
+                processSelection();
+            }, 200);
         } else {
             // 데스크탑: 즉시 실행
             setTimeout(processSelection, delay);
