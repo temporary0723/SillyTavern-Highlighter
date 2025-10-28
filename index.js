@@ -2016,51 +2016,47 @@ function enableHighlightMode() {
         };
 
         if (isTouchEvent) {
-            // ⭐ 안드로이드 크롬: selectionchange 시퀀스로 선택 완료 감지
-            // 드래그 중에는 계속 변경되므로 표시하지 않고,
-            // 변경이 멈춘 뒤(debounce) + 최소 2회 이상 변경이 있었을 때만 표시
+            // ⭐ 안드로이드 크롬: selectionchange가 멈췄을 때만 메뉴 표시
+            // 드래그 중(selectionchange 지속)에는 표시하지 않고,
+            // 500ms 동안 selectionchange가 없는 경우 완료로 간주
             lastSelectionEventTime = Date.now();
             let selectionChangeTimer = null;
             let selectionChangeHandler = null;
-            let selectionChangeCount = 0;
 
             selectionChangeHandler = () => {
-                // selection이 실제로 텍스트를 갖는 경우에만 카운트
+                // selection이 실제로 텍스트를 갖는 경우에만 처리
                 const selNow = window.getSelection();
                 if (!selNow || selNow.rangeCount === 0 || selNow.toString().trim().length === 0) {
                     return;
                 }
 
-                selectionChangeCount += 1;
                 lastSelectionEventTime = Date.now();
 
-                // 마지막 selectionchange 이후 350ms 동안 추가 변화가 없으면 완료로 간주
+                // 매번 타이머 리셋: 드래그 중에는 계속 리셋됨
                 if (selectionChangeTimer) {
                     clearTimeout(selectionChangeTimer);
                 }
+                
+                // 500ms 동안 selectionchange가 없으면 완료
                 selectionChangeTimer = setTimeout(() => {
                     const sel = window.getSelection();
                     if (sel && sel.rangeCount > 0 && sel.toString().trim().length > 0) {
-                        // 최소 2회 이상 변경되었을 때(초기 단어 선택 포함)만 표시
-                        if (selectionChangeCount >= 2) {
-                            if (selectionChangeHandler) {
-                                document.removeEventListener('selectionchange', selectionChangeHandler);
-                                selectionChangeHandler = null;
-                            }
-                            if (touchSelectionTimer) {
-                                clearTimeout(touchSelectionTimer);
-                                touchSelectionTimer = null;
-                            }
-                            processSelection();
+                        if (selectionChangeHandler) {
+                            document.removeEventListener('selectionchange', selectionChangeHandler);
+                            selectionChangeHandler = null;
                         }
+                        if (touchSelectionTimer) {
+                            clearTimeout(touchSelectionTimer);
+                            touchSelectionTimer = null;
+                        }
+                        processSelection();
                     }
-                }, 350);
+                }, 500);
             };
 
             document.addEventListener('selectionchange', selectionChangeHandler);
 
-            // 백업: selectionchange 자체가 전혀 오지 않는 환경만 대비 (거의 없음)
-            // 초기 단어 선택 단계 표시 방지를 위해 최소 변경 횟수 조건 유지
+            // 백업 타이머는 최소화 (selectionchange 미발생 시에만)
             clearTimeout(touchSelectionTimer);
             touchSelectionTimer = setTimeout(() => {
                 if (selectionChangeHandler) {
@@ -2070,11 +2066,12 @@ function enableHighlightMode() {
                 if (selectionChangeTimer) {
                     clearTimeout(selectionChangeTimer);
                 }
-                // 변경이 2회 미만이면 메뉴 표시하지 않음
-                if (selectionChangeCount >= 2) {
+                const sel = window.getSelection();
+                // 최소한의 텍스트가 있어야만 표시
+                if (sel && sel.rangeCount > 0 && sel.toString().trim().length >= 2) {
                     processSelection();
                 }
-            }, 1500);
+            }, 2000);
         } else {
             // 데스크탑: 즉시 실행
             setTimeout(processSelection, delay);
