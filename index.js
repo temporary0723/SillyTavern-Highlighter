@@ -1949,9 +1949,9 @@ function enableHighlightMode() {
 
         const delay = isTouchEvent ? 150 : 0;
 
-        const processSelection = () => {
+        const processSelection = (savedRange = null) => {
             try {
-                const sel = window.getSelection();
+                const sel = savedRange ? { getRangeAt: () => savedRange, toString: () => savedRange.toString() } : window.getSelection();
 
                 // ⭐ 안전장치: range가 없는 경우 처리
                 if (!sel || sel.rangeCount === 0) {
@@ -2016,26 +2016,35 @@ function enableHighlightMode() {
         };
 
         if (isTouchEvent) {
-            // ⭐ 안드로이드 크롬: touchend 시점의 selection을 먼저 확인
-            // 드래그가 끝나면 바로 selection을 읽어서 저장
+            // ⭐ 안드로이드 크롬: touchend 시점의 range를 저장
+            let savedRange = null;
+            
             const checkAndProcess = () => {
-                const sel = window.getSelection();
-                if (!sel || sel.rangeCount === 0) {
-                    // selection이 아직 없으면 잠시 후 재시도
-                    clearTimeout(touchSelectionTimer);
-                    touchSelectionTimer = setTimeout(() => {
-                        processSelection();
-                    }, 100);
+                // 저장된 range가 있으면 사용
+                if (savedRange) {
+                    processSelection(savedRange);
                     return;
                 }
                 
-                // selection이 있으면 바로 메뉴 표시
-                processSelection();
+                // 없다면 현재 selection 시도
+                const sel = window.getSelection();
+                if (!sel || sel.rangeCount === 0) {
+                    return;
+                }
+                processSelection(sel.getRangeAt(0));
             };
             
-            // 먼저 50ms 기다린 후 selection 확인
+            // range 저장 (비동기로 실행되어 touchend 이벤트 완료 후 동작)
+            setTimeout(() => {
+                const sel = window.getSelection();
+                if (sel && sel.rangeCount > 0) {
+                    savedRange = sel.getRangeAt(0).cloneRange();
+                }
+            }, 0);
+            
+            // 100ms 후 메뉴 표시
             clearTimeout(touchSelectionTimer);
-            touchSelectionTimer = setTimeout(checkAndProcess, 50);
+            touchSelectionTimer = setTimeout(checkAndProcess, 100);
         } else {
             // 데스크탑: 즉시 실행
             setTimeout(processSelection, delay);
