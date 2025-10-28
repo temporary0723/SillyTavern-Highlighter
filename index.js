@@ -1962,7 +1962,9 @@ function enableHighlightMode() {
             }
             
             // 핸들을 움직인 경우(selectionChangeCount >= 2)에만 메뉴 표시
+            console.log('[SillyTavern-Highlighter] touchend - count:', selectionChangeCount);
             if (selectionChangeCount >= 2) {
+                console.log('[SillyTavern-Highlighter] Showing menu');
                 const rangeRect = range.getBoundingClientRect();
                 const pageX = rangeRect.left + rangeRect.width / 2 + window.scrollX;
                 const pageY = rangeRect.bottom + window.scrollY;
