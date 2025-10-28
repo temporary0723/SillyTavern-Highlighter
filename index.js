@@ -1921,6 +1921,7 @@ function getMessageLabel(mesId) {
 // ⭐ 모바일 터치 이벤트 안정화를 위한 변수
 let touchSelectionTimer = null;
 let lastTouchEnd = 0;
+let lastSelectionEventTime = 0;
 
 function enableHighlightMode() {
     // 이벤트 위임 방식으로 변경 - 동적으로 로드되는 메시지에도 작동
@@ -2015,8 +2016,52 @@ function enableHighlightMode() {
         };
 
         if (isTouchEvent) {
-            // ⭐ 모바일: 타이머로 안정화
-            touchSelectionTimer = setTimeout(processSelection, delay);
+            // ⭐ 안드로이드 크롬: selectionchange 이벤트로 텍스트 선택 완료 감지
+            // 텍스트 선택이 끝난 후에만 메뉴 표시
+            lastSelectionEventTime = Date.now();
+            let selectionChangeTimer = null;
+            let selectionChangeHandler = null;
+            
+            // selectionchange 이벤트 리스너 추가
+            selectionChangeHandler = () => {
+                const now = Date.now();
+                lastSelectionEventTime = now;
+                
+                // 마지막 selectionchange 이벤트로부터 200ms 후 실행
+                if (selectionChangeTimer) {
+                    clearTimeout(selectionChangeTimer);
+                }
+                selectionChangeTimer = setTimeout(() => {
+                    const sel = window.getSelection();
+                    if (sel && sel.rangeCount > 0 && sel.toString().trim().length > 0) {
+                        if (selectionChangeHandler) {
+                            document.removeEventListener('selectionchange', selectionChangeHandler);
+                            selectionChangeHandler = null;
+                        }
+                        if (touchSelectionTimer) {
+                            clearTimeout(touchSelectionTimer);
+                            touchSelectionTimer = null;
+                        }
+                        processSelection();
+                    }
+                }, 200);
+            };
+            
+            document.addEventListener('selectionchange', selectionChangeHandler);
+            
+            // 백업: 만약 selectionchange가 발생하지 않거나 선택이 완료되지 않으면 원래 방식으로 처리
+            clearTimeout(touchSelectionTimer);
+            touchSelectionTimer = setTimeout(() => {
+                if (selectionChangeHandler) {
+                    document.removeEventListener('selectionchange', selectionChangeHandler);
+                    selectionChangeHandler = null;
+                }
+                if (selectionChangeTimer) {
+                    clearTimeout(selectionChangeTimer);
+                    selectionChangeTimer = null;
+                }
+                processSelection();
+            }, 800);
         } else {
             // 데스크탑: 즉시 실행
             setTimeout(processSelection, delay);
