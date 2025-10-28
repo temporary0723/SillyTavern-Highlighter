@@ -2016,41 +2016,71 @@ function enableHighlightMode() {
         };
 
         if (isTouchEvent) {
-            // ⭐ 안드로이드 크롬: touchend 이후 selectionchange를 감지해서 range 저장
+            // ⭐ 안드로이드 크롬: touchend 직후 range 저장 시도, selectionchange로 완료 감지
             let savedRange = null;
-            let selectionCheckTimer = null;
+            let selectionChangeLastTime = Date.now();
+            let selectionChangeCount = 0;
             
-            // selectionchange 리스너로 range 저장
+            // selectionchange 리스너 - 선택이 완료되었는지 감지
             const selectionChangeHandler = () => {
+                selectionChangeLastTime = Date.now();
+                selectionChangeCount++;
+                
                 const sel = window.getSelection();
                 if (sel && sel.rangeCount > 0) {
                     const text = sel.toString().trim();
-                    // 텍스트가 있을 때만 저장
                     if (text.length >= 2) {
+                        // range를 계속 갱신 (최신 것으로 저장)
                         savedRange = sel.getRangeAt(0).cloneRange();
-                        // range를 찾았으므로 몇 ms 후 메뉴 표시
-                        if (selectionCheckTimer) {
-                            clearTimeout(selectionCheckTimer);
-                        }
-                        selectionCheckTimer = setTimeout(() => {
-                            if (savedRange) {
-                                processSelection(savedRange);
-                            }
-                            // 리스너 제거
-                            document.removeEventListener('selectionchange', selectionChangeHandler);
-                        }, 200);
                     }
                 }
             };
             
             // selectionchange 리스너 추가
-            document.addEventListener('selectionchange', selectionChangeHandler, { once: false });
+            document.addEventListener('selectionchange', selectionChangeHandler);
             
-            // 백업: 1초 후 리스너 제거
+            // 여러 단계로 range 저장 시도
+            // 1. 즉시 시도
+            setTimeout(() => {
+                const sel = window.getSelection();
+                if (sel && sel.rangeCount > 0) {
+                    const text = sel.toString().trim();
+                    if (text.length >= 2 && !savedRange) {
+                        savedRange = sel.getRangeAt(0).cloneRange();
+                    }
+                }
+            }, 0);
+            
+            // 2. 100ms 후 시도
+            setTimeout(() => {
+                const sel = window.getSelection();
+                if (sel && sel.rangeCount > 0) {
+                    const text = sel.toString().trim();
+                    if (text.length >= 2 && !savedRange) {
+                        savedRange = sel.getRangeAt(0).cloneRange();
+                    }
+                }
+            }, 100);
+            
+            // 3. 300ms 후 체크 - selectionchange가 멈췄는지 확인
             clearTimeout(touchSelectionTimer);
             touchSelectionTimer = setTimeout(() => {
+                // 리스너 제거
                 document.removeEventListener('selectionchange', selectionChangeHandler);
-            }, 1000);
+                
+                // 100ms 전부터 selectionchange가 없었다면 완료로 간주
+                const timeSinceLastChange = Date.now() - selectionChangeLastTime;
+                if (timeSinceLastChange > 100 && savedRange) {
+                    processSelection(savedRange);
+                } else if (savedRange) {
+                    // 아직 진행 중이면 조금 더 기다림
+                    setTimeout(() => {
+                        if (savedRange) {
+                            processSelection(savedRange);
+                        }
+                    }, 100);
+                }
+            }, 300);
         } else {
             // 데스크탑: 즉시 실행
             setTimeout(processSelection, delay);
