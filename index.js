@@ -2107,8 +2107,12 @@ function enableHighlightMode() {
             // selectionchange가 최근에 일어났다면 조금 더 대기
             const quietMs = Date.now() - lastSelectionEventTime;
             if (quietMs < 150) {
-                // 재시도
-                return docTouchEndHandler();
+                // 재시도는 지연 호출로 처리하여 즉시 재귀를 방지
+                const waitMs = Math.min(200, 160 - quietMs);
+                selectionStableTimer = setTimeout(() => {
+                    docTouchEndHandler();
+                }, Math.max(60, waitMs));
+                return;
             }
 
             const sel = window.getSelection();
