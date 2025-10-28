@@ -1,0 +1,13 @@
+{
+    "display_name": "형광펜",
+    "loading_order": 200,
+    "requires": [],
+    "optional": [],
+    "js": "index.js",
+    "css": "style.css",
+    "author": "saving3899",
+    "version": "1.1.11",
+    "updateMessage": "색상코드 입력 & 색상 프리셋 기능 추가 (업데이트 전 색상 및 형광펜 백업 필수)",
+    "homePage": "https://github.com/saving3899/SillyTavern-Highlighter",
+    "description": "이북앱 스타일 형광펜 모드 / 깡갤 대피소 갤러리에서만 배포됨"
+}

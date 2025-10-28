@@ -1,0 +1,710 @@
+<div class="highlighter-settings">
+    <div class="inline-drawer">
+        <div class="inline-drawer-toggle inline-drawer-header">
+            <b><i class="fa-solid fa-highlighter"></i> 형광펜</b>
+            <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
+        </div>
+
+        <div class="inline-drawer-content">
+            <div class="settings-section">
+                <h3>기본 설정</h3>
+
+                <label>
+                    채팅 삭제 시 형광펜 처리:
+                    <select id="hl_setting_delete_mode" class="text_pole">
+                        <option value="keep">형광펜 보관</option>
+                        <option value="delete">형광펜도 삭제</option>
+                    </select>
+                </label>
+                <small style="display: block; margin: 5px 0 10px 0;">
+                    보관 모드는 채팅 삭제 후에도 형광펜을 유지합니다.
+                </small>
+
+                <label style="margin-bottom: 16px !important;">
+                    플로팅 버튼 위치:
+                    <select id="hl_setting_button_position" class="text_pole">
+                        <option value="bottom-right">우측 하단</option>
+                        <option value="bottom-left">좌측 하단</option>
+                        <option value="top-right">우측 상단</option>
+                        <option value="top-left">좌측 상단</option>
+                    </select>
+                </label>
+
+                <div style="margin-bottom: 16px !important;">
+                    <label style="display: flex; align-items: center; gap: 8px; margin-top: 12px; cursor: pointer; user-select: none;">
+                        <input type="checkbox" id="hl_setting_show_floating_btn" checked style="margin-left: 0 !important;">
+                        <span style="color: #333 !important; font-size: 14px !important;">플로팅 버튼 표시</span>
+                    </label>
+                    <small style="display: block; margin: 0; color: #666;">
+                        체크 해제 시 플로팅 버튼이 숨겨지며, 요술봉 메뉴에서만 접근할 수 있습니다.
+                    </small>
+                </div>
+
+                <div style="margin-bottom: 16px !important;">
+                    <label style="display: flex; align-items: center; gap: 8px; margin-top: 12px; cursor: pointer; user-select: none;">
+                        <input type="checkbox" id="hl_setting_show_wand_button" checked style="margin-left: 0 !important;">
+                        <span style="color: #333 !important; font-size: 14px !important;">요술봉 메뉴 버튼 표시</span>
+                    </label>
+                    <small style="display: block; margin: 0; color: #666;">
+                        체크 해제 시 요술봉 메뉴에서 형광펜 버튼이 숨겨집니다.
+                    </small>
+                </div>
+
+                <div>
+                    <label style="display: flex; align-items: center; gap: 8px; margin-top: 12px; cursor: pointer; user-select: none;">
+                        <input type="checkbox" id="hl_setting_always_highlight_mode" style="margin-left: 0 !important;">
+                        <span style="color: #333 !important; font-size: 14px !important;">형광펜 모드 항상 활성화</span>
+                    </label>
+                    <small style="display: block; margin: 0; color: #666;">
+                        체크 시 형광펜 모드가 항상 활성화되며, 비활성화할 수 없습니다.
+                    </small>
+                </div>
+            </div>
+
+            <hr style="border: none; border-top: 1px dashed #ddd; margin: 20px 0;">
+
+            <div class="settings-section">
+                <h3>업데이트</h3>
+                <p style="margin-bottom: 12px; color: #666; font-size: 13px;">
+                    새 버전이 출시되었는지 수동으로 확인할 수 있습니다.
+                </p>
+                <button id="hl-check-update-btn" class="menu_button">
+                    <i class="fa-solid fa-sync"></i> 업데이트 확인
+                </button>
+                <div id="hl-update-status" style="margin-top: 12px; padding: 10px; border-radius: 6px; font-size: 13px; display: none;"></div>
+            </div>
+
+            <hr style="border: none; border-top: 1px dashed #ddd; margin: 20px 0;">
+
+            <div class="settings-section">
+                <h3>색상 커스터마이징</h3>
+                <p style="margin-bottom: 16px; color: #666; font-size: 13px;">
+                    형광펜 색상을 원하는 대로 변경할 수 있습니다. 각 색상 버튼의 색상, 불투명도, 글자색을 설정하세요.
+                </p>
+
+                <div id="hl-color-customizer">
+                    <!-- 색상 버튼들이 여기에 동적으로 생성됩니다 -->
+                </div>
+
+                <div style="display: flex; gap: 10px; margin-top: 16px;">
+                    <button id="hl-export-colors" class="menu_button" style="flex: 1;">
+                        <i class="fa-solid fa-download"></i> 색상 백업
+                    </button>
+                    <button id="hl-import-colors" class="menu_button" style="flex: 1;">
+                        <i class="fa-solid fa-upload"></i> 불러오기
+                    </button>
+                </div>
+                <input type="file" id="hl-color-import-input" accept=".json" style="display: none;">
+            </div>
+
+            <hr style="border: none; border-top: 1px dashed #ddd; margin: 20px 0;">
+
+            <div class="settings-section">
+                <h3>저장 방식</h3>
+                <div style="padding: 12px; background: rgba(0,0,0,0.03); border-radius: 8px; line-height: 1.6; font-size: 13px;">
+                    <p><strong>📁 현재 저장 위치</strong></p>
+                    <p style="margin: 5px 0 12px 15px;">
+                        형광펜은 SillyTavern의 설정 파일(settings.json)에 자동 저장됩니다.
+                    </p>
+                    <p><strong>💾 백업 방법</strong></p>
+                    <p style="margin: 5px 0 0 15px;">
+                        독서노트 패널의 "백업" 버튼을 눌러 JSON 파일로 다운로드할 수 있습니다.
+                    </p>
+                </div>
+            </div>
+
+            <hr style="border: none; border-top: 1px dashed #ddd; margin: 20px 0;">
+
+            <div class="settings-section">
+                <h3>사용 방법</h3>
+                <div style="padding: 12px; background: rgba(0,0,0,0.03); border-radius: 8px; line-height: 1.6; font-size: 13px;">
+                    <p><strong>1. 형광펜 모드 활성화</strong></p>
+                    <p style="margin: 5px 0 12px 15px;">플로팅 버튼 클릭 후, 패널의 형광펜 아이콘 클릭</p>
+
+                    <p><strong>2. 텍스트 형광펜 칠하기</strong></p>
+                    <p style="margin: 5px 0 12px 15px;">채팅 메시지에서 텍스트 드래그 → 색상 선택</p>
+
+                    <p><strong>3. 메모 추가</strong></p>
+                    <p style="margin: 5px 0 12px 15px;">형광펜 클릭 → 메모 입력</p>
+
+                    <p><strong>4. 패널 이동</strong></p>
+                    <p style="margin: 5px 0 0 15px;">패널 헤더를 드래그하여 이동 (데스크톱)</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.highlighter-settings {
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+}
+
+.highlighter-settings .inline-drawer-content {
+    padding: 24px;
+    background: #fafafa;
+    border-radius: 12px;
+    border: 1px solid #e8e8e8;
+    border-top: none;
+    overflow: visible !important;
+}
+
+.highlighter-settings .settings-section {
+    margin-bottom: 24px;
+    background: #ffffff;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    overflow: visible !important;
+}
+
+.highlighter-settings .settings-section:last-child {
+    margin-bottom: 0;
+}
+
+.highlighter-settings .settings-section h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 16px;
+    margin-top: 0;
+    color: #333;
+    border-bottom: 2px solid #FFE4B5;
+    padding-bottom: 8px;
+}
+
+.highlighter-settings label {
+    display: block;
+    font-size: 14px;
+    margin-bottom: 0px !important;
+    color: #555;
+    font-weight: 500;
+}
+
+.highlighter-settings select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 14px !important;
+    margin-top: 5px;
+    margin-bottom: 0px !important;
+    background: #fff;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif !important;
+    color: #333 !important;
+}
+
+.highlighter-settings select:focus {
+    outline: none;
+    border-color: #FFE4B5;
+    box-shadow: 0 0 0 3px rgba(255, 228, 181, 0.5);
+}
+
+.highlighter-settings small {
+    color: #777;
+    line-height: 1.5;
+}
+
+.highlighter-settings hr {
+    border: none;
+    height: 1px;
+    background: linear-gradient(to right, transparent, #ddd, transparent);
+    margin: 24px 0;
+}
+
+.highlighter-settings .settings-section > div[style*="background"] {
+    background: #f8f9fa !important;
+    border: 1px solid #e9ecef;
+    padding: 16px !important;
+    border-radius: 8px !important;
+    line-height: 1.7 !important;
+}
+
+.highlighter-settings .settings-section > div[style*="background"] p {
+    margin: 0 0 10px 0;
+    color: #444;
+}
+
+.highlighter-settings .settings-section > div[style*="background"] p:last-child {
+    margin-bottom: 0;
+}
+
+.highlighter-settings .settings-section > div[style*="background"] strong {
+    color: #222;
+    font-weight: 600;
+}
+
+/* 색상 커스터마이저 */
+#hl-color-customizer {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow: visible !important;
+}
+
+/* 프리셋 탭 */
+.hl-preset-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.hl-preset-tab {
+    flex: 1;
+    min-width: 80px;
+    padding: 8px 0px;
+    background: #f0f0f0;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+    color: #555;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.hl-preset-tab:hover {
+    background: #e8e8e8;
+    border-color: #ccc;
+}
+
+.hl-preset-tab.active {
+    background: #FFE4B5;
+    border-color: #ffc18f;
+    color: #8B7355;
+}
+
+.hl-preset-tab.selected {
+    background: #fff3e0;
+    border-color: #ffcc80;
+    color: #f57c00;
+}
+
+.hl-preset-tab-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+    padding: 0 8px;
+}
+
+html body div.highlighter-settings div.settings-section div#hl-color-customizer div.hl-preset-tabs div.hl-preset-tab span.hl-preset-tab-name {
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif !important;
+    line-height: 1.4rem !important;
+    -webkit-text-stroke: 0 !important;
+}
+
+html body div.highlighter-settings div.settings-section div#hl-color-customizer div.hl-preset-tabs div.hl-preset-tab.active span.hl-preset-tab-name {
+    font-weight: 600 !important;
+    -webkit-text-stroke: 0 !important;
+}
+
+html body div.highlighter-settings div.settings-section div#hl-color-customizer div.hl-preset-tabs div.hl-preset-tab.selected span.hl-preset-tab-name {
+    font-weight: 500 !important;
+    -webkit-text-stroke: 0 !important;
+}
+
+/* 프리셋 관리 버튼 */
+.hl-preset-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    gap: 12px;
+}
+
+.hl-preset-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+}
+
+.hl-preset-buttons {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.hl-preset-apply-btn,
+.hl-preset-rename-btn {
+    padding: 6px 12px;
+    background: #f8f9fa;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 12px;
+    color: #555;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+}
+
+.hl-preset-apply-btn {
+    background: #fff3e0;
+    border-color: #ffcc80;
+    color: #f57c00;
+    font-weight: 500;
+}
+
+.hl-preset-apply-btn:hover {
+    background: #ffe0b2;
+    border-color: #ffb74d;
+}
+
+.hl-preset-rename-btn:hover {
+    background: #e9ecef;
+    border-color: #ccc;
+}
+
+.hl-preset-apply-btn i,
+.hl-preset-rename-btn i {
+    margin-right: 4px;
+    font-size: 11px;
+}
+
+/* 빠른 색상 적용 */
+.hl-quick-color-input {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 16px;
+    padding: 12px;
+    background: #f8f9fa;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+}
+
+.hl-quick-color-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.hl-quick-color-input label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+    margin: 0;
+}
+
+.hl-quick-color-field {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px !important;
+    background: #fff;
+    box-sizing: border-box;
+    color: #505050;
+}
+
+.hl-quick-color-field:focus {
+    outline: none;
+    border-color: #FFE4B5;
+    box-shadow: 0 0 0 3px rgba(255, 228, 181, 0.3);
+}
+
+.hl-quick-color-hint {
+    font-size: 12px;
+    color: #777;
+    line-height: 1.4;
+    margin: 0 0 4px 0;
+    text-align: center;
+}
+
+.hl-quick-color-apply-btn {
+    padding: 6px 20px;
+    background: #FFE4B5;
+    border: 1px solid #ffc18f;
+    border-radius: 6px;
+    font-size: 12px;
+    color: #222;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+}
+
+.hl-quick-color-apply-btn:hover {
+    background: #ffd89b;
+    border-color: #ffb74d;
+}
+
+.hl-color-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+    overflow: visible !important;
+}
+
+.hl-color-preview {
+    width: 50px;
+    height: 50px;
+    border-radius: 8px;
+    border: 2px solid #ddd;
+    cursor: pointer;
+    transition: transform 0.2s;
+    flex-shrink: 0;
+    position: relative;
+    overflow: hidden;
+}
+
+.hl-color-preview:hover {
+    transform: scale(1.05);
+}
+
+.hl-color-preview-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-weight: 600;
+    font-size: 18px;
+    pointer-events: none;
+}
+
+.hl-color-controls {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow: visible !important;
+}
+
+.hl-color-control-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    overflow: visible !important;
+    padding: 10px 0 !important;
+    min-height: 44px !important;
+}
+
+.hl-color-control-row label {
+    min-width: 60px;
+    margin: 0;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.hl-color-control-row input[type="color"] {
+    width: 60px;
+    height: 32px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.hl-color-control-row input[type="range"] {
+    flex: 1;
+}
+
+.hl-color-control-row input[type="number"] {
+    width: 60px;
+    padding: 6px 8px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 13px !important;
+    text-align: center;
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif !important;
+    color: #333 !important;
+}
+
+.hl-color-control-row input[type="number"]:focus {
+    outline: none;
+    border-color: #FFE4B5;
+    box-shadow: 0 0 0 3px rgba(255, 228, 181, 0.5);
+}
+
+.hl-color-control-row input.hl-hex-input {
+    width: 60px;
+    padding: 6px 8px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 13px !important;
+    text-align: center;
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif !important;
+    color: #333 !important;
+    text-transform: uppercase;
+}
+
+.hl-color-control-row input.hl-hex-input:focus {
+    outline: none;
+    border-color: #FFE4B5;
+    box-shadow: 0 0 0 3px rgba(255, 228, 181, 0.5);
+}
+
+/* 체크박스 커스텀 스타일 */
+.highlighter-settings input[type="checkbox"] {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    width: 20px !important;
+    height: 20px !important;
+    border: 2px solid #ddd !important;
+    border-radius: 4px !important;
+    cursor: pointer !important;
+    position: relative !important;
+    transition: all 0.2s ease !important;
+    background: #fff !important;
+    flex-shrink: 0 !important;
+}
+
+.highlighter-settings input[type="checkbox"]:hover {
+    border-color: #ffc18f !important;
+}
+
+.highlighter-settings input[type="checkbox"]:checked {
+    background: #ffc18f !important;
+    border-color: #ffc18f !important;
+}
+
+.highlighter-settings input[type="checkbox"]:checked::after {
+    content: '✓' !important;
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    color: #8B7355 !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
+}
+
+.highlighter-settings input[type="checkbox"]:focus {
+    outline: none !important;
+    box-shadow: 0 0 0 3px rgba(255, 228, 181, 0.5) !important;
+}
+
+/* Range 슬라이더는 style.css에서 통합 관리 */
+
+/* Color picker 커스텀 */
+.highlighter-settings input[type="color"] {
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    appearance: none !important;
+    width: 60px !important;
+    height: 32px !important;
+    border: 2px solid #ddd !important;
+    border-radius: 6px !important;
+    cursor: pointer !important;
+    padding: 2px !important;
+    background: #fff !important;
+    transition: all 0.2s ease !important;
+}
+
+.highlighter-settings input[type="color"]:hover {
+    border-color: #FFE4B5 !important;
+    transform: scale(1.05) !important;
+}
+
+.highlighter-settings input[type="color"]:focus {
+    outline: none !important;
+    box-shadow: 0 0 0 3px rgba(255, 228, 181, 0.5) !important;
+}
+
+.highlighter-settings input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 0 !important;
+}
+
+.highlighter-settings input[type="color"]::-webkit-color-swatch {
+    border: none !important;
+    border-radius: 4px !important;
+}
+
+.highlighter-settings input[type="color"]::-moz-color-swatch {
+    border: none !important;
+    border-radius: 4px !important;
+}
+
+body .highlighter-settings .settings-section > div button.menu_button,
+body .highlighter-settings .settings-section > div button.menu_button i,
+body .highlighter-settings .settings-section > div button.menu_button::before {
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif !important;
+    font-size: 14px !important;
+    color: #333 !important;
+    width: auto !important;
+    height: auto !important;
+    min-width: auto !important;
+    padding: none !important;
+    border: none !important;
+    border-radius: none !important;
+    background-color: none !important;
+}
+
+body .highlighter-settings .settings-section > div button#hl-export-colors,
+body .highlighter-settings .settings-section > div button#hl-import-colors,
+body .highlighter-settings .settings-section button#hl-check-update-btn {
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif !important;
+    font-size: 13px !important;
+    color: #333 !important;
+    width: calc(calc(100% / 2) - 5px) !important;
+    height: 33px !important;
+    min-width: auto !important;
+    padding: none !important;
+    border: 1px solid #ddd !important;
+    border-radius: 8px !important;
+    background-color: #f8f9fa !important;
+}
+
+body .highlighter-settings .settings-section > div button#hl-export-colors:hover,
+body .highlighter-settings .settings-section > div button#hl-import-colors:hover,
+body .highlighter-settings .settings-section button#hl-check-update-btn:hover {
+    background-color: #e9ecef !important;
+    border-color: #ccc !important;
+    transform: none !important;
+}
+
+body .highlighter-settings .settings-section > div button#hl-export-colors i,
+body .highlighter-settings .settings-section > div button#hl-import-colors i,
+body .highlighter-settings .settings-section button#hl-check-update-btn i {
+    font-size: 12px !important;
+    color: #333 !important;
+    margin-right: 6px !important;
+}
+
+/* 업데이트 확인 버튼은 혼자 있으므로 전체 너비 */
+body .highlighter-settings .settings-section button#hl-check-update-btn {
+    width: 100% !important;
+}
+
+.hl-color-control-row .hl-use-default-label {
+    font-size: 13px !important;
+    color: #555 !important;
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.hl-color-control-row .hl-use-default-label input[type="checkbox"] {
+    margin: 0;
+}
+
+.highlighter-settings .hl-color-control-row .hl-use-default-label .hl-checkbox-text {
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif !important;
+    font-size: 13px !important;
+    font-weight: normal !important;
+    line-height: 1.5 !important;
+    -webkit-text-stroke: 0 !important;
+    color: #555 !important;
+}
+</style>
