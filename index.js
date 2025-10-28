@@ -1978,23 +1978,14 @@ function enableHighlightMode() {
                 return;
             }
             
-            // 핸들을 움직인 경우(selectionChangeCount >= 2)에만 메뉴 표시
+            // 핸들을 움직인 경우 드래그 종료 플래그 설정 (실제 메뉴는 selectionchange가 멈춘 후 표시)
             if (selectionChangeCount >= 2) {
-                const rangeRect = range.getBoundingClientRect();
-                const pageX = rangeRect.left + rangeRect.width / 2 + window.scrollX;
-                const pageY = rangeRect.bottom + window.scrollY;
-                
-                // 색상 메뉴 표시 (드래그 완료 후 바로)
-                touchSelectionTimer = setTimeout(() => {
-                    showColorMenu(pageX, pageY, text, range, element);
-                    touchSelectionTimer = null;
-                }, 200);
+                isDragging = false;
+            } else {
+                selectionChangeCount = 0;
+                initialSelectionText = '';
+                isDragging = false;
             }
-            
-            // 초기화
-            selectionChangeCount = 0;
-            initialSelectionText = '';
-            isDragging = false;
         };
         
         // selectionchange로 드래그 감지
@@ -2038,6 +2029,41 @@ function enableHighlightMode() {
                 isDragging = true;
             }
             
+            // 기존 타이머 제거
+            if (selectionChangeTimer) {
+                clearTimeout(selectionChangeTimer);
+            }
+            
+            // 드래그 중이 아니고 핸들을 움직인 경우, 500ms 후 메뉴 표시
+            if (!isDragging && selectionChangeCount >= 2) {
+                selectionChangeTimer = setTimeout(() => {
+                    const sel = window.getSelection();
+                    if (sel && sel.rangeCount > 0) {
+                        const text = sel.toString().trim();
+                        if (text.length >= 2) {
+                            const range = sel.getRangeAt(0);
+                            const element = $(range.commonAncestorContainer).closest('.mes_text')[0];
+                            
+                            if (element) {
+                                const rangeRect = range.getBoundingClientRect();
+                                const pageX = rangeRect.left + rangeRect.width / 2 + window.scrollX;
+                                const pageY = rangeRect.bottom + window.scrollY;
+                                
+                                // 색상 메뉴 표시
+                                touchSelectionTimer = setTimeout(() => {
+                                    showColorMenu(pageX, pageY, text, range, element);
+                                    touchSelectionTimer = null;
+                                }, 100);
+                            }
+                        }
+                    }
+                    
+                    // 초기화
+                    selectionChangeCount = 0;
+                    initialSelectionText = '';
+                    selectionChangeTimer = null;
+                }, 500);
+            }
         };
         
         document.addEventListener('touchend', document._hl_touchend_handler, { passive: true });
