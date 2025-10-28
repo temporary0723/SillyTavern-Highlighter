@@ -1925,11 +1925,16 @@ let lastSelectionEventTime = 0;
 
 function enableHighlightMode() {
     // 이벤트 위임 방식으로 변경 - 동적으로 로드되는 메시지에도 작동
-    $(document).off('mouseup.hl touchend.hl', '.mes_text').on('mouseup.hl touchend.hl', '.mes_text', function (e) {
-        const element = this;
+    $(document).off('mouseup.hl touchend.hl touchcancel.hl').on('mouseup.hl touchend.hl touchcancel.hl', function (e) {
+        // .mes_text 요소 내부에서 발생한 이벤트인지 확인
+        const $target = $(e.target).closest('.mes_text');
+        if ($target.length === 0) {
+            return;
+        }
+        const element = $target[0];
 
         // 모바일 터치 이벤트의 경우 약간의 딜레이 추가
-        const isTouchEvent = e.type === 'touchend';
+        const isTouchEvent = e.type === 'touchend' || e.type === 'touchcancel';
 
         // ⭐ 터치 이벤트 중복 방지 - 같은 터치가 여러 번 발생하는 것 방지
         if (isTouchEvent) {
@@ -2030,7 +2035,7 @@ function enableHighlightMode() {
 }
 
 function disableHighlightMode() {
-    $(document).off('mouseup.hl touchend.hl', '.mes_text');
+    $(document).off('mouseup.hl touchend.hl touchcancel.hl');
 
     // ⭐ 대기 중인 터치 타이머 제거
     if (touchSelectionTimer) {
