@@ -1922,38 +1922,14 @@ function getMessageLabel(mesId) {
 let touchSelectionTimer = null;
 let lastTouchEnd = 0;
 let lastSelectionEventTime = 0;
-let initialSelectionRange = null; // 초기 선택 범위 저장
-let hasSelectionChanged = false; // 선택 범위가 변경되었는지 추적
 
 function enableHighlightMode() {
-    // selectionchange 이벤트로 선택 범위 변경 감지
-    $(document).off('selectionchange.hl').on('selectionchange.hl', function() {
-        if (initialSelectionRange) {
-            const sel = window.getSelection();
-            if (sel && sel.rangeCount > 0) {
-                const currentRange = sel.getRangeAt(0);
-                // 초기 범위와 현재 범위가 다르면 변경된 것으로 간주
-                if (currentRange.startContainer !== initialSelectionRange.startContainer ||
-                    currentRange.startOffset !== initialSelectionRange.startOffset ||
-                    currentRange.endContainer !== initialSelectionRange.endContainer ||
-                    currentRange.endOffset !== initialSelectionRange.endOffset) {
-                    hasSelectionChanged = true;
-                }
-            }
-        }
-    });
-
     // 이벤트 위임 방식으로 변경 - 동적으로 로드되는 메시지에도 작동
-    $(document).off('mouseup.hl touchend.hl touchcancel.hl').on('mouseup.hl touchend.hl touchcancel.hl', function (e) {
-        // .mes_text 요소 내부에서 발생한 이벤트인지 확인
-        const $target = $(e.target).closest('.mes_text');
-        if ($target.length === 0) {
-            return;
-        }
-        const element = $target[0];
+    $(document).off('mouseup.hl touchend.hl', '.mes_text').on('mouseup.hl touchend.hl', '.mes_text', function (e) {
+        const element = this;
 
         // 모바일 터치 이벤트의 경우 약간의 딜레이 추가
-        const isTouchEvent = e.type === 'touchend' || e.type === 'touchcancel';
+        const isTouchEvent = e.type === 'touchend';
 
         // ⭐ 터치 이벤트 중복 방지 - 같은 터치가 여러 번 발생하는 것 방지
         if (isTouchEvent) {
@@ -2040,22 +2016,56 @@ function enableHighlightMode() {
         };
 
         if (isTouchEvent) {
-            // ⭐ 안드로이드 크롬: 초기 선택과 드래그 완료 구분
-            // 초기 선택 범위 저장
-            const sel = window.getSelection();
-            if (sel && sel.rangeCount > 0) {
-                initialSelectionRange = sel.getRangeAt(0).cloneRange();
-                hasSelectionChanged = false;
-            }
+            // ⭐ 안드로이드 크롬: selectionchange 완료 후 메뉴 표시
+            // 1. touchend 시점에 selection이 아직 불안정할 수 있음
+            // 2. selectionchange 이벤트로 안정화 기다림
+            // 3. selectionchange가 300ms 멈추면 완료로 간주
             
-            // touchend 후 200ms 후에 메뉴 표시 (드래그 종료 대기)
+            let selectionChangeHandler = null;
+            let selectionChangeTimer = null;
+            let selectionStable = false;
+            
+            // selectionchange 이벤트 리스너
+            selectionChangeHandler = () => {
+                const sel = window.getSelection();
+                if (sel && sel.rangeCount > 0 && sel.toString().trim().length >= 2) {
+                    // selection이 있고 텍스트도 있으면 안정화 대기
+                    if (selectionChangeTimer) {
+                        clearTimeout(selectionChangeTimer);
+                    }
+                    selectionChangeTimer = setTimeout(() => {
+                        // 300ms 동안 변하지 않으면 안정화된 것으로 간주
+                        if (!selectionStable) {
+                            selectionStable = true;
+                            if (selectionChangeHandler) {
+                                document.removeEventListener('selectionchange', selectionChangeHandler);
+                                selectionChangeHandler = null;
+                            }
+                            clearTimeout(touchSelectionTimer);
+                            processSelection();
+                        }
+                    }, 300);
+                }
+            };
+            
+            // selectionchange 이벤트 시작
+            document.addEventListener('selectionchange', selectionChangeHandler);
+            
+            // 백업 타이머: 1000ms 후에도 안정화되지 않으면 강제 실행
             clearTimeout(touchSelectionTimer);
             touchSelectionTimer = setTimeout(() => {
-                // 선택이 변경되었을 때만 메뉴 표시
-                if (hasSelectionChanged) {
+                if (!selectionStable) {
+                    selectionStable = true;
+                    if (selectionChangeHandler) {
+                        document.removeEventListener('selectionchange', selectionChangeHandler);
+                        selectionChangeHandler = null;
+                    }
+                    if (selectionChangeTimer) {
+                        clearTimeout(selectionChangeTimer);
+                    }
                     processSelection();
                 }
-            }, 200);
+            }, 1000);
         } else {
             // 데스크탑: 즉시 실행
             setTimeout(processSelection, delay);
@@ -2064,17 +2074,13 @@ function enableHighlightMode() {
 }
 
 function disableHighlightMode() {
-    $(document).off('mouseup.hl touchend.hl touchcancel.hl selectionchange.hl');
+    $(document).off('mouseup.hl touchend.hl', '.mes_text');
 
     // ⭐ 대기 중인 터치 타이머 제거
     if (touchSelectionTimer) {
         clearTimeout(touchSelectionTimer);
         touchSelectionTimer = null;
     }
-    
-    // 초기화
-    initialSelectionRange = null;
-    hasSelectionChanged = false;
 }
 
 // 전역 변수: document click 핸들러 추적
