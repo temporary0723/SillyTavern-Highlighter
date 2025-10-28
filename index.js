@@ -2016,62 +2016,12 @@ function enableHighlightMode() {
         };
 
         if (isTouchEvent) {
-            // ⭐ 안드로이드 크롬: selectionchange가 멈췄을 때만 메뉴 표시
-            // 드래그 중(selectionchange 지속)에는 표시하지 않고,
-            // 500ms 동안 selectionchange가 없는 경우 완료로 간주
-            lastSelectionEventTime = Date.now();
-            let selectionChangeTimer = null;
-            let selectionChangeHandler = null;
-
-            selectionChangeHandler = () => {
-                // selection이 실제로 텍스트를 갖는 경우에만 처리
-                const selNow = window.getSelection();
-                if (!selNow || selNow.rangeCount === 0 || selNow.toString().trim().length === 0) {
-                    return;
-                }
-
-                lastSelectionEventTime = Date.now();
-
-                // 매번 타이머 리셋: 드래그 중에는 계속 리셋됨
-                if (selectionChangeTimer) {
-                    clearTimeout(selectionChangeTimer);
-                }
-                
-                // 500ms 동안 selectionchange가 없으면 완료
-                selectionChangeTimer = setTimeout(() => {
-                    const sel = window.getSelection();
-                    if (sel && sel.rangeCount > 0 && sel.toString().trim().length > 0) {
-                        if (selectionChangeHandler) {
-                            document.removeEventListener('selectionchange', selectionChangeHandler);
-                            selectionChangeHandler = null;
-                        }
-                        if (touchSelectionTimer) {
-                            clearTimeout(touchSelectionTimer);
-                            touchSelectionTimer = null;
-                        }
-                        processSelection();
-                    }
-                }, 500);
-            };
-
-            document.addEventListener('selectionchange', selectionChangeHandler);
-
-            // 백업 타이머는 최소화 (selectionchange 미발생 시에만)
+            // ⭐ 안드로이드 크롬: 단순한 방식으로 변경
+            // touchend 후 200ms 후에 메뉴 표시 (드래그 종료 대기)
             clearTimeout(touchSelectionTimer);
             touchSelectionTimer = setTimeout(() => {
-                if (selectionChangeHandler) {
-                    document.removeEventListener('selectionchange', selectionChangeHandler);
-                    selectionChangeHandler = null;
-                }
-                if (selectionChangeTimer) {
-                    clearTimeout(selectionChangeTimer);
-                }
-                const sel = window.getSelection();
-                // 최소한의 텍스트가 있어야만 표시
-                if (sel && sel.rangeCount > 0 && sel.toString().trim().length >= 2) {
-                    processSelection();
-                }
-            }, 2000);
+                processSelection();
+            }, 200);
         } else {
             // 데스크탑: 즉시 실행
             setTimeout(processSelection, delay);
