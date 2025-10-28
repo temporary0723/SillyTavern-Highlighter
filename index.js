@@ -2010,6 +2010,31 @@ function enableHighlightMode() {
                 lastRange = range.cloneRange();
                 lastElement = element;
             }
+            
+            // 이전 타이머 제거
+            if (selectionChangeTimer) {
+                clearTimeout(selectionChangeTimer);
+            }
+            
+            // selectionchange가 멈춘 것을 확인 (600ms 동안 추가 변경 없음)
+            selectionChangeTimer = setTimeout(() => {
+                // 핸들을 움직인 경우(selectionChangeCount >= 2)에만 메뉴 표시
+                if (selectionChangeCount >= 2 && lastRange && lastElement) {
+                    const rangeRect = lastRange.getBoundingClientRect();
+                    const pageX = rangeRect.left + rangeRect.width / 2 + window.scrollX;
+                    const pageY = rangeRect.bottom + window.scrollY;
+                    
+                    showColorMenu(pageX, pageY, lastSelectionText, lastRange, lastElement);
+                }
+                
+                // 초기화
+                selectionChangeCount = 0;
+                initialSelectionText = '';
+                lastSelectionText = '';
+                lastRange = null;
+                lastElement = null;
+                selectionChangeTimer = null;
+            }, 600);
         };
         
         document.addEventListener('selectionchange', document._hl_selectionchange_handler);
