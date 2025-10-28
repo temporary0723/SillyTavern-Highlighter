@@ -1924,27 +1924,22 @@ let lastTouchEnd = 0;
 let lastSelectionEventTime = 0;
 
 function enableHighlightMode() {
-    // 전역 touchend 핸들러 등록 (안드로이드 텍스트 선택 완료 감지용)
-    if (!document._hl_touchend_handler) {
-        document._hl_touchend_handler = function(e) {
-            // 메시지 영역 외부 터치는 무시
-            const mesTextElement = $(e.target).closest('.mes_text')[0];
-            if (!mesTextElement) {
-                return;
-            }
-            
-            // 이미 처리 중이면 무시
-            if (touchSelectionTimer) {
-                return;
-            }
-            
-            // selection이 있는지 확인
+    // 전역 selectionchange 핸들러 등록 (안드로이드 텍스트 선택 완료 감지용)
+    if (!document._hl_selectionchange_handler) {
+        let lastChangeTime = 0;
+        let selectionChangeTimer = null;
+        
+        document._hl_selectionchange_handler = function() {
             const sel = window.getSelection();
+            
+            // selection이 없는 경우 무시
             if (!sel || sel.rangeCount === 0) {
                 return;
             }
             
             const text = sel.toString().trim();
+            
+            // 선택된 텍스트가 너무 짧으면 무시
             if (text.length < 2) {
                 return;
             }
@@ -1955,24 +1950,46 @@ function enableHighlightMode() {
                 return;
             }
             
-            touchSelectionTimer = setTimeout(() => {
+            // 이미 처리 중이면 무시
+            if (touchSelectionTimer) {
+                return;
+            }
+            
+            const now = Date.now();
+            lastChangeTime = now;
+            
+            // 이전 타이머 제거
+            if (selectionChangeTimer) {
+                clearTimeout(selectionChangeTimer);
+            }
+            
+            // selectionchange가 멈춘 것을 확인 (400ms 동안 추가 변경 없음)
+            selectionChangeTimer = setTimeout(() => {
                 const sel = window.getSelection();
-                if (sel && sel.rangeCount > 0 && sel.toString().trim().length >= 2) {
-                    const range = sel.getRangeAt(0);
+                if (sel && sel.rangeCount > 0) {
                     const text = sel.toString().trim();
-                    const element = $(range.commonAncestorContainer).closest('.mes_text')[0] || mesTextElement;
-                    
-                    const rangeRect = range.getBoundingClientRect();
-                    const pageX = rangeRect.left + rangeRect.width / 2 + window.scrollX;
-                    const pageY = rangeRect.bottom + window.scrollY;
-                    
-                    showColorMenu(pageX, pageY, text, range, element);
+                    if (text.length >= 2) {
+                        const range = sel.getRangeAt(0);
+                        const element = $(range.commonAncestorContainer).closest('.mes_text')[0];
+                        
+                        if (element) {
+                            const rangeRect = range.getBoundingClientRect();
+                            const pageX = rangeRect.left + rangeRect.width / 2 + window.scrollX;
+                            const pageY = rangeRect.bottom + window.scrollY;
+                            
+                            // 색상 메뉴 표시
+                            touchSelectionTimer = setTimeout(() => {
+                                showColorMenu(pageX, pageY, text, range, element);
+                                touchSelectionTimer = null;
+                            }, 100);
+                        }
+                    }
                 }
-                touchSelectionTimer = null;
-            }, 200);
+                selectionChangeTimer = null;
+            }, 400);
         };
         
-        document.addEventListener('touchend', document._hl_touchend_handler, { passive: true });
+        document.addEventListener('selectionchange', document._hl_selectionchange_handler);
     }
     
     // 이벤트 위임 방식으로 변경 - 동적으로 로드되는 메시지에도 작동
@@ -2067,10 +2084,10 @@ function disableHighlightMode() {
         touchSelectionTimer = null;
     }
     
-    // ⭐ 전역 touchend 핸들러 제거
-    if (document._hl_touchend_handler) {
-        document.removeEventListener('touchend', document._hl_touchend_handler);
-        document._hl_touchend_handler = null;
+    // ⭐ 전역 selectionchange 핸들러 제거
+    if (document._hl_selectionchange_handler) {
+        document.removeEventListener('selectionchange', document._hl_selectionchange_handler);
+        document._hl_selectionchange_handler = null;
     }
 }
 
