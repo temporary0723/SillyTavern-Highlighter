@@ -1920,32 +1920,53 @@ function getMessageLabel(mesId) {
 
 // ⭐ 모바일 터치 이벤트 안정화를 위한 변수
 let touchSelectionTimer = null;
+let selectionChangeTimer = null;
 let lastTouchEnd = 0;
 let lastSelectionEventTime = 0;
 
 function enableHighlightMode() {
-    // 전역 selectionchange 핸들러 등록 (안드로이드 텍스트 선택 완료 감지용)
-    if (!document._hl_selectionchange_handler) {
+    // 전역 핸들러 등록 (안드로이드 텍스트 선택 완료 감지용)
+    if (!document._hl_touch_handler) {
         let selectionChangeCount = 0;
-        let selectionChangeTimer = null;
         let initialSelectionText = '';
+        let isDragging = false;
+        let touchStartTime = 0;
         
-        document._hl_selectionchange_handler = function() {
-            const sel = window.getSelection();
+        // touchend로 드래그 완료 감지
+        document._hl_touchend_handler = function(e) {
+            // 메시지 영역 외부 터치는 무시
+            const mesTextElement = $(e.target).closest('.mes_text')[0];
+            if (!mesTextElement) {
+                selectionChangeCount = 0;
+                initialSelectionText = '';
+                isDragging = false;
+                return;
+            }
             
-            // selection이 없는 경우 무시
+            // 기존 타이머 제거
+            if (selectionChangeTimer) {
+                clearTimeout(selectionChangeTimer);
+            }
+            
+            // 이미 처리 중이면 무시
+            if (touchSelectionTimer) {
+                return;
+            }
+            
+            // selection 확인
+            const sel = window.getSelection();
             if (!sel || sel.rangeCount === 0) {
                 selectionChangeCount = 0;
                 initialSelectionText = '';
+                isDragging = false;
                 return;
             }
             
             const text = sel.toString().trim();
-            
-            // 선택된 텍스트가 너무 짧으면 무시
             if (text.length < 2) {
                 selectionChangeCount = 0;
                 initialSelectionText = '';
+                isDragging = false;
                 return;
             }
             
@@ -1954,11 +1975,58 @@ function enableHighlightMode() {
             if (!range.commonAncestorContainer || !$(range.commonAncestorContainer).closest('.mes_text').length) {
                 selectionChangeCount = 0;
                 initialSelectionText = '';
+                isDragging = false;
                 return;
             }
             
-            // 이미 처리 중이면 무시
-            if (touchSelectionTimer) {
+            // 핸들을 움직인 경우(selectionChangeCount >= 2)에만 메뉴 표시
+            if (selectionChangeCount >= 2) {
+                const element = $(range.commonAncestorContainer).closest('.mes_text')[0] || mesTextElement;
+                
+                if (element) {
+                    const rangeRect = range.getBoundingClientRect();
+                    const pageX = rangeRect.left + rangeRect.width / 2 + window.scrollX;
+                    const pageY = rangeRect.bottom + window.scrollY;
+                    
+                    // 색상 메뉴 표시 (드래그 완료 후 바로)
+                    touchSelectionTimer = setTimeout(() => {
+                        showColorMenu(pageX, pageY, text, range, element);
+                        touchSelectionTimer = null;
+                    }, 200);
+                }
+            }
+            
+            // 초기화
+            selectionChangeCount = 0;
+            initialSelectionText = '';
+            isDragging = false;
+        };
+        
+        // selectionchange로 드래그 감지
+        document._hl_selectionchange_handler = function() {
+            const sel = window.getSelection();
+            
+            if (!sel || sel.rangeCount === 0) {
+                selectionChangeCount = 0;
+                initialSelectionText = '';
+                isDragging = false;
+                return;
+            }
+            
+            const text = sel.toString().trim();
+            
+            if (text.length < 2) {
+                selectionChangeCount = 0;
+                initialSelectionText = '';
+                isDragging = false;
+                return;
+            }
+            
+            const range = sel.getRangeAt(0);
+            if (!range.commonAncestorContainer || !$(range.commonAncestorContainer).closest('.mes_text').length) {
+                selectionChangeCount = 0;
+                initialSelectionText = '';
+                isDragging = false;
                 return;
             }
             
@@ -1966,52 +2034,22 @@ function enableHighlightMode() {
             if (selectionChangeCount === 0) {
                 initialSelectionText = text;
                 selectionChangeCount = 1;
-                // 초기 단어 선택은 메뉴를 표시하지 않고 카운트만 증가
                 return;
             }
             
             // 초기 텍스트와 다른 경우 (핸들을 움직인 경우)에만 카운트 증가
             if (text !== initialSelectionText) {
                 selectionChangeCount++;
+                isDragging = true;
             }
             
-            // 이전 타이머 제거
+            // 기존 타이머 제거 (드래그 중에는 메뉴를 표시하지 않음)
             if (selectionChangeTimer) {
                 clearTimeout(selectionChangeTimer);
             }
-            
-            // selectionchange가 멈춘 것을 확인 (400ms 동안 추가 변경 없음)
-            selectionChangeTimer = setTimeout(() => {
-                const sel = window.getSelection();
-                if (sel && sel.rangeCount > 0) {
-                    const text = sel.toString().trim();
-                    if (text.length >= 2) {
-                        // 핸들을 움직인 경우(selectionChangeCount >= 2)에만 메뉴 표시
-                        if (selectionChangeCount >= 2) {
-                            const range = sel.getRangeAt(0);
-                            const element = $(range.commonAncestorContainer).closest('.mes_text')[0];
-                            
-                            if (element) {
-                                const rangeRect = range.getBoundingClientRect();
-                                const pageX = rangeRect.left + rangeRect.width / 2 + window.scrollX;
-                                const pageY = rangeRect.bottom + window.scrollY;
-                                
-                                // 색상 메뉴 표시
-                                touchSelectionTimer = setTimeout(() => {
-                                    showColorMenu(pageX, pageY, text, range, element);
-                                    touchSelectionTimer = null;
-                                }, 100);
-                            }
-                        }
-                    }
-                }
-                // 초기화
-                selectionChangeCount = 0;
-                initialSelectionText = '';
-                selectionChangeTimer = null;
-            }, 400);
         };
         
+        document.addEventListener('touchend', document._hl_touchend_handler, { passive: true });
         document.addEventListener('selectionchange', document._hl_selectionchange_handler);
     }
     
@@ -2107,7 +2145,12 @@ function disableHighlightMode() {
         touchSelectionTimer = null;
     }
     
-    // ⭐ 전역 selectionchange 핸들러 제거
+    // ⭐ 전역 핸들러 제거
+    if (document._hl_touchend_handler) {
+        document.removeEventListener('touchend', document._hl_touchend_handler);
+        document._hl_touchend_handler = null;
+    }
+    
     if (document._hl_selectionchange_handler) {
         document.removeEventListener('selectionchange', document._hl_selectionchange_handler);
         document._hl_selectionchange_handler = null;
