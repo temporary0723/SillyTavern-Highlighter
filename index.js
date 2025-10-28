@@ -1920,116 +1920,102 @@ function getMessageLabel(mesId) {
 
 // ⭐ 모바일 터치 이벤트 안정화를 위한 변수
 let touchSelectionTimer = null;
-let selectionChangeTimer = null;
 let lastTouchEnd = 0;
 let lastSelectionEventTime = 0;
 
 function enableHighlightMode() {
-    // 전역 핸들러 등록 (안드로이드 텍스트 선택 완료 감지용)
-    if (!document._hl_touch_handler) {
+    // 전역 selectionchange 핸들러 등록 (안드로이드 텍스트 선택 완료 감지용)
+    if (!document._hl_selectionchange_handler) {
         let selectionChangeCount = 0;
+        let selectionChangeTimer = null;
         let initialSelectionText = '';
-        let isDragging = false;
-        let touchStartTime = 0;
+        let lastSelectionText = '';
+        let lastRange = null;
+        let lastElement = null;
         
-        // touchend로 드래그 완료 감지
-        document._hl_touchend_handler = function(e) {
-            // 이미 처리 중이면 무시
-            if (touchSelectionTimer) {
-                return;
-            }
-            
-            // selection 확인
+        document._hl_selectionchange_handler = function() {
             const sel = window.getSelection();
+            
+            // selection이 없는 경우
             if (!sel || sel.rangeCount === 0) {
+                // 드래그 완료 확인: 이전에 선택이 있었고 핸들을 움직였으면 완료로 간주
+                if (lastSelectionText && lastSelectionText.length >= 2 && selectionChangeCount >= 2 && lastRange && lastElement) {
+                    // 메뉴 표시
+                    const rangeRect = lastRange.getBoundingClientRect();
+                    const pageX = rangeRect.left + rangeRect.width / 2 + window.scrollX;
+                    const pageY = rangeRect.bottom + window.scrollY;
+                    
+                    showColorMenu(pageX, pageY, lastSelectionText, lastRange, lastElement);
+                }
+                
+                selectionChangeCount = 0;
+                initialSelectionText = '';
+                lastSelectionText = '';
+                lastRange = null;
+                lastElement = null;
                 return;
             }
             
             const text = sel.toString().trim();
+            
+            // 선택된 텍스트가 너무 짧으면 무시
             if (text.length < 2) {
+                selectionChangeCount = 0;
+                initialSelectionText = '';
+                lastSelectionText = '';
+                lastRange = null;
+                lastElement = null;
                 return;
             }
             
             // selection이 .mes_text 영역 안에 있는지 확인
             const range = sel.getRangeAt(0);
             if (!range.commonAncestorContainer || !$(range.commonAncestorContainer).closest('.mes_text').length) {
+                selectionChangeCount = 0;
+                initialSelectionText = '';
+                lastSelectionText = '';
+                lastRange = null;
+                lastElement = null;
                 return;
             }
             
+            // 이미 처리 중이면 무시
+            if (touchSelectionTimer) {
+                return;
+            }
+            
+            // element 찾기
             const element = $(range.commonAncestorContainer).closest('.mes_text')[0];
             if (!element) {
-                return;
-            }
-            
-            // 핸들을 움직인 경우(selectionChangeCount >= 2)에만 메뉴 표시
-            console.log('[SillyTavern-Highlighter] touchend - count:', selectionChangeCount);
-            if (selectionChangeCount >= 2) {
-                console.log('[SillyTavern-Highlighter] Showing menu');
-                const rangeRect = range.getBoundingClientRect();
-                const pageX = rangeRect.left + rangeRect.width / 2 + window.scrollX;
-                const pageY = rangeRect.bottom + window.scrollY;
-                
-                // 색상 메뉴 표시 (드래그 완료 후 바로)
-                touchSelectionTimer = setTimeout(() => {
-                    showColorMenu(pageX, pageY, text, range, element);
-                    touchSelectionTimer = null;
-                }, 300);
-                
-                // 초기화
-                selectionChangeCount = 0;
-                initialSelectionText = '';
-                isDragging = false;
-            }
-        };
-        
-        // selectionchange로 드래그 감지
-        document._hl_selectionchange_handler = function() {
-            const sel = window.getSelection();
-            
-            if (!sel || sel.rangeCount === 0) {
-                selectionChangeCount = 0;
-                initialSelectionText = '';
-                isDragging = false;
-                return;
-            }
-            
-            const text = sel.toString().trim();
-            
-            if (text.length < 2) {
-                selectionChangeCount = 0;
-                initialSelectionText = '';
-                isDragging = false;
-                return;
-            }
-            
-            const range = sel.getRangeAt(0);
-            if (!range.commonAncestorContainer || !$(range.commonAncestorContainer).closest('.mes_text').length) {
-                selectionChangeCount = 0;
-                initialSelectionText = '';
-                isDragging = false;
                 return;
             }
             
             // 첫 번째 selectionchange이면 초기 텍스트 저장
             if (selectionChangeCount === 0) {
                 initialSelectionText = text;
+                lastSelectionText = text;
+                lastRange = range.cloneRange();
+                lastElement = element;
                 selectionChangeCount = 1;
+                // 초기 단어 선택은 메뉴를 표시하지 않고 카운트만 증가
                 return;
             }
             
             // 초기 텍스트와 다른 경우 (핸들을 움직인 경우)에만 카운트 증가
             if (text !== initialSelectionText) {
                 selectionChangeCount++;
-                isDragging = true;
+                
+                // 현재 range 정보 저장 (드래그 완료 시 사용)
+                lastSelectionText = text;
+                lastRange = range.cloneRange();
+                lastElement = element;
             }
-            
         };
         
-        document.addEventListener('touchend', document._hl_touchend_handler, { passive: true });
         document.addEventListener('selectionchange', document._hl_selectionchange_handler);
     }
     
-    // 이벤트 위임 방식으로 변경 - 동적으로 로드되는 메시지에도 작웕
+    // 이벤트 위임 방식으로 변경 - 동적으로 로드되는 메시지에도 작동
     $(document).off('mouseup.hl touchend.hl', '.mes_text').on('mouseup.hl touchend.hl', '.mes_text', function (e) {
         const element = this;
 
@@ -2121,12 +2107,7 @@ function disableHighlightMode() {
         touchSelectionTimer = null;
     }
     
-    // ⭐ 전역 핸들러 제거
-    if (document._hl_touchend_handler) {
-        document.removeEventListener('touchend', document._hl_touchend_handler);
-        document._hl_touchend_handler = null;
-    }
-    
+    // ⭐ 전역 selectionchange 핸들러 제거
     if (document._hl_selectionchange_handler) {
         document.removeEventListener('selectionchange', document._hl_selectionchange_handler);
         document._hl_selectionchange_handler = null;
