@@ -1949,20 +1949,43 @@ function enableHighlightMode() {
 
         const delay = isTouchEvent ? 150 : 0;
 
-        // ⭐ 터치 이벤트의 경우 좌표를 미리 저장 (touchend 후에는 접근 불가)
+        // ⭐ 터치 이벤트의 경우 좌표와 selection을 미리 저장 (touchend 후에는 접근 불가)
         let savedPageX = e.pageX || (e.originalEvent?.changedTouches?.[0]?.pageX) || e.clientX;
         let savedPageY = e.pageY || (e.originalEvent?.changedTouches?.[0]?.pageY) || e.clientY;
+        
+        // ⭐ 안드로이드 크롬: touchend 시점에 이미 selection이 존재할 수 있으므로 저장
+        let savedSelection = null;
+        try {
+            const selNow = window.getSelection();
+            if (selNow && selNow.rangeCount > 0) {
+                savedSelection = {
+                    range: selNow.getRangeAt(0),
+                    text: selNow.toString()
+                };
+            }
+        } catch (err) {
+            // 무시
+        }
 
         const processSelection = () => {
             try {
-                const sel = window.getSelection();
+                let sel = window.getSelection();
+                let range = null;
+                let text = '';
 
-                // ⭐ 안전장치: range가 없는 경우 처리
-                if (!sel || sel.rangeCount === 0) {
-                    return;
+                // ⭐ 터치 이벤트: 저장된 selection 우선 사용
+                if (isTouchEvent && savedSelection) {
+                    text = savedSelection.text;
+                    range = savedSelection.range;
+                    sel = null; // marker로 사용
+                } else {
+                    // ⭐ 안전장치: range가 없는 경우 처리
+                    if (!sel || sel.rangeCount === 0) {
+                        return;
+                    }
+                    range = sel.getRangeAt(0);
+                    text = sel.toString();
                 }
-
-                let text = sel.toString();
 
                 // 앞뒤 빈줄 제거
                 const originalText = text;
@@ -1980,8 +2003,6 @@ function enableHighlightMode() {
                 }
 
                 // 선택된 텍스트가 있으면 색상 메뉴 표시 (하이라이트 영역 포함해도 OK)
-
-                const range = sel.getRangeAt(0);
 
                 // 터치 이벤트와 마우스 이벤트 모두 지원
                 // ⭐ 저장된 좌표 사용
