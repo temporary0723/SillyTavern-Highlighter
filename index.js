@@ -1922,6 +1922,11 @@ function getMessageLabel(mesId) {
 let touchSelectionTimer = null;
 let lastTouchEnd = 0;
 let lastSelectionEventTime = 0;
+let mobileTouchActive = false;
+let selectionStableTimer = null;
+let docTouchStartHandler = null;
+let docTouchEndHandler = null;
+let docSelectionChangeHandler = null;
 
 function enableHighlightMode() {
     // 이벤트 위임 방식으로 변경 - 동적으로 로드되는 메시지에도 작동
@@ -2067,6 +2072,67 @@ function enableHighlightMode() {
             setTimeout(processSelection, delay);
         }
     });
+
+    // ⭐ 모바일 전역 터치/선택 안정화: 선택 핸들 드래그까지 고려
+    // 중복 등록 방지 위해 먼저 제거 후 등록
+    if (docTouchStartHandler) document.removeEventListener('touchstart', docTouchStartHandler);
+    if (docTouchEndHandler) document.removeEventListener('touchend', docTouchEndHandler);
+    if (docSelectionChangeHandler) document.removeEventListener('selectionchange', docSelectionChangeHandler);
+
+    docTouchStartHandler = () => {
+        mobileTouchActive = true;
+        lastSelectionEventTime = Date.now();
+        if (selectionStableTimer) {
+            clearTimeout(selectionStableTimer);
+            selectionStableTimer = null;
+        }
+        // 선택 중에는 색상 메뉴 숨김
+        removeColorMenu();
+    };
+
+    docSelectionChangeHandler = () => {
+        // 선택 범위가 바뀌는 동안에는 시간을 갱신만
+        lastSelectionEventTime = Date.now();
+    };
+
+    docTouchEndHandler = () => {
+        mobileTouchActive = false;
+        if (selectionStableTimer) {
+            clearTimeout(selectionStableTimer);
+            selectionStableTimer = null;
+        }
+
+        // 손가락을 뗀 뒤 selectionchange가 멈출 때까지 대기 후 표시
+        selectionStableTimer = setTimeout(() => {
+            // selectionchange가 최근에 일어났다면 조금 더 대기
+            const quietMs = Date.now() - lastSelectionEventTime;
+            if (quietMs < 150) {
+                // 재시도
+                return docTouchEndHandler();
+            }
+
+            const sel = window.getSelection();
+            if (!sel || sel.rangeCount === 0) return;
+            const text = sel.toString().trim();
+            if (text.length === 0) return;
+
+            const range = sel.getRangeAt(0);
+            const rect = range.getBoundingClientRect();
+            const pageX = rect.left + (rect.width / 2) + window.scrollX;
+            const pageY = rect.bottom + window.scrollY;
+
+            // 선택 범위가 속한 메시지 요소 찾기
+            const ancestor = range.commonAncestorContainer;
+            const el = $(ancestor).closest('.mes_text')[0] || document.querySelector('.mes_text');
+            if (!el) return;
+
+            showColorMenu(pageX, pageY, text, range, el);
+        }, 220);
+    };
+
+    document.addEventListener('touchstart', docTouchStartHandler, { passive: true });
+    document.addEventListener('touchend', docTouchEndHandler, { passive: true });
+    document.addEventListener('selectionchange', docSelectionChangeHandler);
 }
 
 function disableHighlightMode() {
@@ -2076,6 +2142,24 @@ function disableHighlightMode() {
     if (touchSelectionTimer) {
         clearTimeout(touchSelectionTimer);
         touchSelectionTimer = null;
+    }
+
+    // 전역 이벤트 해제 및 타이머 정리
+    if (selectionStableTimer) {
+        clearTimeout(selectionStableTimer);
+        selectionStableTimer = null;
+    }
+    if (docTouchStartHandler) {
+        document.removeEventListener('touchstart', docTouchStartHandler);
+        docTouchStartHandler = null;
+    }
+    if (docTouchEndHandler) {
+        document.removeEventListener('touchend', docTouchEndHandler);
+        docTouchEndHandler = null;
+    }
+    if (docSelectionChangeHandler) {
+        document.removeEventListener('selectionchange', docSelectionChangeHandler);
+        docSelectionChangeHandler = null;
     }
 }
 
