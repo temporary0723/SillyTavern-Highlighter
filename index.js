@@ -1922,11 +1922,6 @@ function getMessageLabel(mesId) {
 let touchSelectionTimer = null;
 let lastTouchEnd = 0;
 let lastSelectionEventTime = 0;
-let mobileTouchActive = false;
-let selectionStableTimer = null;
-let docTouchStartHandler = null;
-let docTouchEndHandler = null;
-let docSelectionChangeHandler = null;
 
 function enableHighlightMode() {
     // 이벤트 위임 방식으로 변경 - 동적으로 로드되는 메시지에도 작동
@@ -2021,40 +2016,51 @@ function enableHighlightMode() {
         };
 
         if (isTouchEvent) {
-            // ⭐ 안드로이드 크롬: selectionchange 이벤트로 텍스트 선택 완료 감지
-            // 텍스트 선택이 끝난 후에만 메뉴 표시
+            // ⭐ 안드로이드 크롬: selectionchange 시퀀스로 선택 완료 감지
+            // 드래그 중에는 계속 변경되므로 표시하지 않고,
+            // 변경이 멈춘 뒤(debounce) + 최소 2회 이상 변경이 있었을 때만 표시
             lastSelectionEventTime = Date.now();
             let selectionChangeTimer = null;
             let selectionChangeHandler = null;
-            
-            // selectionchange 이벤트 리스너 추가
+            let selectionChangeCount = 0;
+
             selectionChangeHandler = () => {
-                const now = Date.now();
-                lastSelectionEventTime = now;
-                
-                // 마지막 selectionchange 이벤트로부터 200ms 후 실행
+                // selection이 실제로 텍스트를 갖는 경우에만 카운트
+                const selNow = window.getSelection();
+                if (!selNow || selNow.rangeCount === 0 || selNow.toString().trim().length === 0) {
+                    return;
+                }
+
+                selectionChangeCount += 1;
+                lastSelectionEventTime = Date.now();
+
+                // 마지막 selectionchange 이후 350ms 동안 추가 변화가 없으면 완료로 간주
                 if (selectionChangeTimer) {
                     clearTimeout(selectionChangeTimer);
                 }
                 selectionChangeTimer = setTimeout(() => {
                     const sel = window.getSelection();
                     if (sel && sel.rangeCount > 0 && sel.toString().trim().length > 0) {
-                        if (selectionChangeHandler) {
-                            document.removeEventListener('selectionchange', selectionChangeHandler);
-                            selectionChangeHandler = null;
+                        // 최소 2회 이상 변경되었을 때(초기 단어 선택 포함)만 표시
+                        if (selectionChangeCount >= 2) {
+                            if (selectionChangeHandler) {
+                                document.removeEventListener('selectionchange', selectionChangeHandler);
+                                selectionChangeHandler = null;
+                            }
+                            if (touchSelectionTimer) {
+                                clearTimeout(touchSelectionTimer);
+                                touchSelectionTimer = null;
+                            }
+                            processSelection();
                         }
-                        if (touchSelectionTimer) {
-                            clearTimeout(touchSelectionTimer);
-                            touchSelectionTimer = null;
-                        }
-                        processSelection();
                     }
-                }, 200);
+                }, 350);
             };
-            
+
             document.addEventListener('selectionchange', selectionChangeHandler);
-            
-            // 백업: 만약 selectionchange가 발생하지 않거나 선택이 완료되지 않으면 원래 방식으로 처리
+
+            // 백업: selectionchange 자체가 전혀 오지 않는 환경만 대비 (거의 없음)
+            // 초기 단어 선택 단계 표시 방지를 위해 최소 변경 횟수 조건 유지
             clearTimeout(touchSelectionTimer);
             touchSelectionTimer = setTimeout(() => {
                 if (selectionChangeHandler) {
@@ -2063,80 +2069,17 @@ function enableHighlightMode() {
                 }
                 if (selectionChangeTimer) {
                     clearTimeout(selectionChangeTimer);
-                    selectionChangeTimer = null;
                 }
-                processSelection();
-            }, 800);
+                // 변경이 2회 미만이면 메뉴 표시하지 않음
+                if (selectionChangeCount >= 2) {
+                    processSelection();
+                }
+            }, 1500);
         } else {
             // 데스크탑: 즉시 실행
             setTimeout(processSelection, delay);
         }
     });
-
-    // ⭐ 모바일 전역 터치/선택 안정화: 선택 핸들 드래그까지 고려
-    // 중복 등록 방지 위해 먼저 제거 후 등록
-    if (docTouchStartHandler) document.removeEventListener('touchstart', docTouchStartHandler);
-    if (docTouchEndHandler) document.removeEventListener('touchend', docTouchEndHandler);
-    if (docSelectionChangeHandler) document.removeEventListener('selectionchange', docSelectionChangeHandler);
-
-    docTouchStartHandler = () => {
-        mobileTouchActive = true;
-        lastSelectionEventTime = Date.now();
-        if (selectionStableTimer) {
-            clearTimeout(selectionStableTimer);
-            selectionStableTimer = null;
-        }
-        // 선택 중에는 색상 메뉴 숨김
-        removeColorMenu();
-    };
-
-    docSelectionChangeHandler = () => {
-        // 선택 범위가 바뀌는 동안에는 시간을 갱신만
-        lastSelectionEventTime = Date.now();
-    };
-
-    docTouchEndHandler = () => {
-        mobileTouchActive = false;
-        if (selectionStableTimer) {
-            clearTimeout(selectionStableTimer);
-            selectionStableTimer = null;
-        }
-
-        // 손가락을 뗀 뒤 selectionchange가 멈출 때까지 대기 후 표시
-        selectionStableTimer = setTimeout(() => {
-            // selectionchange가 최근에 일어났다면 조금 더 대기
-            const quietMs = Date.now() - lastSelectionEventTime;
-            if (quietMs < 150) {
-                // 재시도는 지연 호출로 처리하여 즉시 재귀를 방지
-                const waitMs = Math.min(200, 160 - quietMs);
-                selectionStableTimer = setTimeout(() => {
-                    docTouchEndHandler();
-                }, Math.max(60, waitMs));
-                return;
-            }
-
-            const sel = window.getSelection();
-            if (!sel || sel.rangeCount === 0) return;
-            const text = sel.toString().trim();
-            if (text.length === 0) return;
-
-            const range = sel.getRangeAt(0);
-            const rect = range.getBoundingClientRect();
-            const pageX = rect.left + (rect.width / 2) + window.scrollX;
-            const pageY = rect.bottom + window.scrollY;
-
-            // 선택 범위가 속한 메시지 요소 찾기
-            const ancestor = range.commonAncestorContainer;
-            const el = $(ancestor).closest('.mes_text')[0] || document.querySelector('.mes_text');
-            if (!el) return;
-
-            showColorMenu(pageX, pageY, text, range, el);
-        }, 220);
-    };
-
-    document.addEventListener('touchstart', docTouchStartHandler, { passive: true });
-    document.addEventListener('touchend', docTouchEndHandler, { passive: true });
-    document.addEventListener('selectionchange', docSelectionChangeHandler);
 }
 
 function disableHighlightMode() {
@@ -2146,24 +2089,6 @@ function disableHighlightMode() {
     if (touchSelectionTimer) {
         clearTimeout(touchSelectionTimer);
         touchSelectionTimer = null;
-    }
-
-    // 전역 이벤트 해제 및 타이머 정리
-    if (selectionStableTimer) {
-        clearTimeout(selectionStableTimer);
-        selectionStableTimer = null;
-    }
-    if (docTouchStartHandler) {
-        document.removeEventListener('touchstart', docTouchStartHandler);
-        docTouchStartHandler = null;
-    }
-    if (docTouchEndHandler) {
-        document.removeEventListener('touchend', docTouchEndHandler);
-        docTouchEndHandler = null;
-    }
-    if (docSelectionChangeHandler) {
-        document.removeEventListener('selectionchange', docSelectionChangeHandler);
-        docSelectionChangeHandler = null;
     }
 }
 
