@@ -1924,34 +1924,72 @@ let lastTouchEnd = 0;
 let lastSelectionEventTime = 0;
 
 function enableHighlightMode() {
+    // 전역 touchend 핸들러 등록 (안드로이드 텍스트 선택 완료 감지용)
+    if (!document._hl_touchend_handler) {
+        document._hl_touchend_handler = function(e) {
+            // 메시지 영역 외부 터치는 무시
+            const mesTextElement = $(e.target).closest('.mes_text')[0];
+            if (!mesTextElement) {
+                return;
+            }
+            
+            // 이미 처리 중이면 무시
+            if (touchSelectionTimer) {
+                return;
+            }
+            
+            // selection이 있는지 확인
+            const sel = window.getSelection();
+            if (!sel || sel.rangeCount === 0) {
+                return;
+            }
+            
+            const text = sel.toString().trim();
+            if (text.length < 2) {
+                return;
+            }
+            
+            // selection이 .mes_text 영역 안에 있는지 확인
+            const range = sel.getRangeAt(0);
+            if (!range.commonAncestorContainer || !$(range.commonAncestorContainer).closest('.mes_text').length) {
+                return;
+            }
+            
+            touchSelectionTimer = setTimeout(() => {
+                const sel = window.getSelection();
+                if (sel && sel.rangeCount > 0 && sel.toString().trim().length >= 2) {
+                    const range = sel.getRangeAt(0);
+                    const text = sel.toString().trim();
+                    const element = $(range.commonAncestorContainer).closest('.mes_text')[0] || mesTextElement;
+                    
+                    const rangeRect = range.getBoundingClientRect();
+                    const pageX = rangeRect.left + rangeRect.width / 2 + window.scrollX;
+                    const pageY = rangeRect.bottom + window.scrollY;
+                    
+                    showColorMenu(pageX, pageY, text, range, element);
+                }
+                touchSelectionTimer = null;
+            }, 200);
+        };
+        
+        document.addEventListener('touchend', document._hl_touchend_handler, { passive: true });
+    }
+    
     // 이벤트 위임 방식으로 변경 - 동적으로 로드되는 메시지에도 작동
     $(document).off('mouseup.hl touchend.hl', '.mes_text').on('mouseup.hl touchend.hl', '.mes_text', function (e) {
         const element = this;
 
-        // 모바일 터치 이벤트의 경우 약간의 딜레이 추가
+        // 모바일 터치 이벤트의 경우 전역 핸들러가 처리하도록 스킵
         const isTouchEvent = e.type === 'touchend';
-
-        // ⭐ 터치 이벤트 중복 방지 - 같은 터치가 여러 번 발생하는 것 방지
         if (isTouchEvent) {
-            const now = Date.now();
-            if (now - lastTouchEnd < 300) {
-                // 300ms 이내 중복 터치는 무시
-                return;
-            }
-            lastTouchEnd = now;
-
-            // 기존 타이머 제거
-            if (touchSelectionTimer) {
-                clearTimeout(touchSelectionTimer);
-                touchSelectionTimer = null;
-            }
+            return;
         }
 
-        const delay = isTouchEvent ? 150 : 0;
+        const delay = 0;
 
-        const processSelection = (savedRange = null) => {
+        const processSelection = () => {
             try {
-                const sel = savedRange ? { getRangeAt: () => savedRange, toString: () => savedRange.toString() } : window.getSelection();
+                const sel = window.getSelection();
 
                 // ⭐ 안전장치: range가 없는 경우 처리
                 if (!sel || sel.rangeCount === 0) {
@@ -1970,8 +2008,8 @@ function enableHighlightMode() {
                     return;
                 }
 
-                // ⭐ 텍스트가 너무 짧으면(1자 이하) 무시 (오터치 방지)
-                if (text.length < 2 && isTouchEvent) {
+                // ⭐ 텍스트가 너무 짧으면(1자 이하) 무시
+                if (text.length < 2) {
                     return;
                 }
 
@@ -2015,42 +2053,8 @@ function enableHighlightMode() {
             }
         };
 
-        if (isTouchEvent) {
-            // ⭐ 안드로이드 크롬: touchend 이후 selectionchange에서 range 저장
-            // 드래그 중에는 selectionchange가 계속 발생하므로 무시
-            // touchend 이후 첫 번째 또는 최신 selectionchange에서 range 저장하고 메뉴 표시
-            let savedRange = null;
-            let isDragging = true; // 드래그 상태 추적
-            let touchendTime = Date.now();
-            
-            // selectionchange 리스너
-            const selectionChangeHandler = () => {
-                const sel = window.getSelection();
-                if (sel && sel.rangeCount > 0) {
-                    const text = sel.toString().trim();
-                    if (text.length >= 2) {
-                        // touchend 이후 500ms 이내에 발생한 selectionchange만 처리
-                        if (Date.now() - touchendTime < 500) {
-                            savedRange = sel.getRangeAt(0).cloneRange();
-                        }
-                    }
-                }
-            };
-            
-            document.addEventListener('selectionchange', selectionChangeHandler);
-            
-            // 150ms 후 range가 있으면 메뉴 표시 (안드로이드 크롬의 딜레이 고려)
-            clearTimeout(touchSelectionTimer);
-            touchSelectionTimer = setTimeout(() => {
-                document.removeEventListener('selectionchange', selectionChangeHandler);
-                if (savedRange) {
-                    processSelection(savedRange);
-                }
-            }, 150);
-        } else {
-            // 데스크탑: 즉시 실행
-            setTimeout(processSelection, delay);
-        }
+        // 데스크탑 전용: 즉시 실행
+        setTimeout(processSelection, delay);
     });
 }
 
@@ -2061,6 +2065,12 @@ function disableHighlightMode() {
     if (touchSelectionTimer) {
         clearTimeout(touchSelectionTimer);
         touchSelectionTimer = null;
+    }
+    
+    // ⭐ 전역 touchend 핸들러 제거
+    if (document._hl_touchend_handler) {
+        document.removeEventListener('touchend', document._hl_touchend_handler);
+        document._hl_touchend_handler = null;
     }
 }
 
